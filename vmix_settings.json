@@ -1,0 +1,11 @@
+{
+  "ip": "127.0.0.1",
+  "port": "8088",
+  "login": "",
+  "password": "",
+  "remember_creds": false,
+  "show_settings": true,
+  "ui_scale": 1.0,
+  "fullscreen": false,
+  "version": 1.1
+}

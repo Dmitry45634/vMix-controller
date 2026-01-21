@@ -1817,9 +1817,6 @@ def main():
         QLineEdit:focus, QComboBox:focus {
             border: 1px solid #777;
         }
-        QPushButton {
-            cursor: pointer;
-        }
         QCheckBox {
             color: #ddd;
             spacing: 8px;
