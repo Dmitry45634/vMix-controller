@@ -714,6 +714,7 @@ class VMixController(QMainWindow):
         self.ip_edit.setPlaceholderText("Example: 192.168.1.100")
 
         self.port_edit = QLineEdit(self.settings.port)
+        self.port_edit.setPlaceholderText("8088")
         
         #create a layout
         ip_port_layout = QHBoxLayout()
@@ -735,7 +736,7 @@ class VMixController(QMainWindow):
 
         self.pass_edit = QLineEdit(self.settings.password)
         self.pass_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self.pass_edit.setPlaceholderText("Usually not required")
+        self.pass_edit.setPlaceholderText("Your Password")
         self.settings_layout.addWidget(self.pass_edit, 2, 1)
 
         # Checkbox and connect
