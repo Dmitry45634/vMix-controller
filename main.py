@@ -30,7 +30,7 @@ class Settings:
         self.show_settings = True
         self.ui_scale = 1.0
         self.fullscreen = False
-        self.version = 1.11
+        self.version = 1.2
         self.scale_slider_step = 5
 
     def load(self): #try to parse from json
