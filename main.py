@@ -9,28 +9,19 @@ from PyQt6.QtGui import *
 
 # ==================== SETTINGS CLASS ====================
 class Settings:
-    """
-    Settings class for storing and managing application configuration.
-    Handles loading/saving from/to JSON file with user preferences.
-    """
+    def __init__(self): #define deafault settings
+        self.ip = "127.0.0.1"
+        self.port = "8088"
+        self.login = ""
+        self.password = ""
+        self.remember_creds = False
+        self.show_settings = True
+        self.ui_scale = 1.0
+        self.fullscreen = False
+        self.version = 1.11
+        self.scale_slider_step = 5
 
-    def __init__(self):
-        """Initialize default settings"""
-        self.ip = "127.0.0.1"  # vMix server IP address
-        self.port = "8088"  # vMix API port (default: 8088)
-        self.login = ""  # vMix login (usually empty)
-        self.password = ""  # vMix password (usually empty)
-        self.remember_creds = False  # Remember credentials flag
-        self.show_settings = True  # Show settings panel on startup
-        self.ui_scale = 1.0  # UI scaling factor (0.7 to 2.2)
-        self.fullscreen = False  # Fullscreen mode flag
-        self.version = 1.1  # Application version
-
-    def load(self):
-        """
-        Load settings from JSON configuration file.
-        Creates default file if it doesn't exist.
-        """
+    def load(self): #try to parse from json
         try:
             with open('vmix_settings.json', 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -40,15 +31,14 @@ class Settings:
                 self.password = data.get('password', self.password)
                 self.remember_creds = data.get('remember_creds', False)
                 self.show_settings = data.get('show_settings', True)
-                self.ui_scale = data.get('ui_scale', 1.0)
+                self.ui_scale = data.get('ui_scale', self.ui_scale)
                 self.fullscreen = data.get('fullscreen', False)
-                self.version = data.get('version', 1.1)
-        except FileNotFoundError:
-            # Create default settings file if it doesn't exist
+                self.version = data.get('version', self.version)
+                self.scale_slider_step = data.get('scale_slider_step', self.scale_slider_step)
+        except FileNotFoundError: #if theres no json create one
             self.save()
 
-    def save(self):
-        """Save current settings to JSON configuration file"""
+    def save(self): #save json with defined settings
         data = {
             'ip': self.ip,
             'port': self.port,
@@ -58,7 +48,8 @@ class Settings:
             'show_settings': self.show_settings,
             'ui_scale': self.ui_scale,
             'fullscreen': self.fullscreen,
-            'version': self.version
+            'version': self.version,
+            'scale_slider_step': self.scale_slider_step
         }
         with open('vmix_settings.json', 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
@@ -763,10 +754,10 @@ class VMixController(QMainWindow):
         self.scale_slider.setRange(70, 180)  # 70% to 180%
         self.scale_slider.setValue(int(self.settings.ui_scale * 100))
         self.scale_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.scale_slider.setTickInterval(10)
-        self.scale_slider.setSingleStep(10)
-        self.scale_slider.setTracking(False)
-        self.scale_slider.valueChanged.connect(self.on_scale_changed)
+        self.scale_slider.setTickInterval(int(self.settings.scale_slider_step)) #some parsing from settings
+        self.scale_slider.setSingleStep(int(self.settings.scale_slider_step)) #some parsing from settings
+        self.scale_slider.setTracking(False) #apply changes when slider is released
+        self.scale_slider.valueChanged.connect(self.on_scale_changed) #trigger this func on value change
         self.settings_layout.addWidget(self.scale_slider, 3, 1)
 
         self.scale_label = QLabel(f"{self.scale_slider.value()}%")
@@ -830,12 +821,12 @@ class VMixController(QMainWindow):
         self.scale_label.setText(f"{value}%")
 
     def on_scale_changed(self, value):
-        scale_factor = round(value / 10) * 10
-        scale_factor = scale_factor / 100
+        scale_factor = round(value / int(self.settings.scale_slider_step)) * int(self.settings.scale_slider_step) # rounding slider value
+        scale_factor = scale_factor / 100 # convert to scale factor
         self.status_bar.showMessage(str(scale_factor))
         self.scale_label.setText(f"{value}%")
-        self.scale_slider.setValue(int(scale_factor * 100))
-        self.apply_scale(scale_factor)
+        self.scale_slider.setValue(int(scale_factor * 100)) # set slider to round value
+        self.apply_scale(scale_factor) # apply scale
 
     def get_large_button_style(self, bg_color="#2196F3"):
         """Generate CSS style for large buttons (QUICK PLAY, FTB) with scaling"""
