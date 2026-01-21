@@ -12,3 +12,4 @@ __pycache__/
 
 #prog
 vmix_settings.json
+app.log
