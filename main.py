@@ -760,14 +760,13 @@ class VMixController(QMainWindow):
         self.settings_layout.addWidget(scale_label, 3, 0)
 
         self.scale_slider = QSlider(Qt.Orientation.Horizontal)
-        self.scale_slider.setRange(70, 220)  # 70% to 220%
+        self.scale_slider.setRange(70, 180)  # 70% to 180%
         self.scale_slider.setValue(int(self.settings.ui_scale * 100))
         self.scale_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.scale_slider.setTickInterval(10)
-        # Connect signal only for slider release
-        self.scale_slider.sliderReleased.connect(self.on_scale_released)
-        # Also track value for display
-        self.scale_slider.valueChanged.connect(self.update_scale_display)
+        self.scale_slider.setSingleStep(10)
+        self.scale_slider.setTracking(False)
+        self.scale_slider.valueChanged.connect(self.on_scale_changed)
         self.settings_layout.addWidget(self.scale_slider, 3, 1)
 
         self.scale_label = QLabel(f"{self.scale_slider.value()}%")
@@ -830,10 +829,12 @@ class VMixController(QMainWindow):
         """Update scale display label without applying changes"""
         self.scale_label.setText(f"{value}%")
 
-    def on_scale_released(self):
-        """Apply scale changes only when slider is released"""
-        value = self.scale_slider.value()
-        scale_factor = value / 100.0
+    def on_scale_changed(self, value):
+        scale_factor = round(value / 10) * 10
+        scale_factor = scale_factor / 100
+        self.status_bar.showMessage(str(scale_factor))
+        self.scale_label.setText(f"{value}%")
+        self.scale_slider.setValue(int(scale_factor * 100))
         self.apply_scale(scale_factor)
 
     def get_large_button_style(self, bg_color="#2196F3"):
