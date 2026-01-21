@@ -696,28 +696,33 @@ class VMixController(QMainWindow):
         main_layout.addWidget(self.control_group)
 
         # ========== SETTINGS PANEL (BOTTOM) ==========
-        self.settings_group = QGroupBox("Connect to vMix")
+        self.settings_group = QGroupBox("Settings")
         self.settings_group.setVisible(self.settings.show_settings)
 
         self.settings_layout = QGridLayout()
         self.settings_layout.setSpacing(10)
         self.settings_layout.setContentsMargins(15, 15, 15, 15)
 
-        # Row 1: IP and Port
+        #IP and Port
+        
+        #label
         ip_label = QLabel("IP Address:")
         self.settings_layout.addWidget(ip_label, 0, 0)
 
+        #text boxes ip:port
         self.ip_edit = QLineEdit(self.settings.ip)
         self.ip_edit.setPlaceholderText("Example: 192.168.1.100")
-        self.settings_layout.addWidget(self.ip_edit, 0, 1)
-
-        port_label = QLabel("Port:")
-        self.settings_layout.addWidget(port_label, 0, 2)
 
         self.port_edit = QLineEdit(self.settings.port)
-        self.settings_layout.addWidget(self.port_edit, 0, 3)
+        
+        #create a layout
+        ip_port_layout = QHBoxLayout()
+        ip_port_layout.addWidget(self.ip_edit, 0)
+        ip_port_layout.addWidget(QLabel(":"))
+        ip_port_layout.addWidget(self.port_edit, 0)
+        self.settings_layout.addLayout(ip_port_layout, 0, 1)
 
-        # Row 2: Login and Password
+        # Login and Password
         login_label = QLabel("Login:")
         self.settings_layout.addWidget(login_label, 1, 0)
 
@@ -726,55 +731,61 @@ class VMixController(QMainWindow):
         self.settings_layout.addWidget(self.login_edit, 1, 1)
 
         pass_label = QLabel("Password:")
-        self.settings_layout.addWidget(pass_label, 1, 2)
+        self.settings_layout.addWidget(pass_label, 2, 0)
 
         self.pass_edit = QLineEdit(self.settings.password)
         self.pass_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self.pass_edit.setPlaceholderText("Usually not required")
-        self.settings_layout.addWidget(self.pass_edit, 1, 3)
+        self.settings_layout.addWidget(self.pass_edit, 2, 1)
 
-        # Row 3: Checkbox and buttons
+        # Checkbox and connect
         self.remember_check = QCheckBox("Remember credentials")
         self.remember_check.setChecked(self.settings.remember_creds)
-        self.settings_layout.addWidget(self.remember_check, 2, 0, 1, 2)
-
-        self.btn_save = QPushButton("Save")
-        self.btn_save.clicked.connect(self.save_settings)
-        self.settings_layout.addWidget(self.btn_save, 2, 2)
-
+        
         self.btn_connect = QPushButton("Connect")
         self.btn_connect.clicked.connect(self.connect_to_vmix)
-        self.settings_layout.addWidget(self.btn_connect, 2, 3)
+        
+        connecting_layout = QHBoxLayout()
+        connecting_layout.setSpacing(40)
+        connecting_layout.addWidget(self.remember_check, 0)
+        connecting_layout.addWidget(self.btn_connect, 1)
+        self.settings_layout.addLayout(connecting_layout, 3, 1)
 
-        # Row 4: Scale slider - UPDATED FOR RELEASE-ONLY CHANGES
+        # Scale slider
         scale_label = QLabel("UI Scale:")
-        self.settings_layout.addWidget(scale_label, 3, 0)
+        self.settings_layout.addWidget(scale_label, 0, 2)
 
         self.scale_slider = QSlider(Qt.Orientation.Horizontal)
         self.scale_slider.setRange(70, 180)  # 70% to 180%
         self.scale_slider.setValue(int(self.settings.ui_scale * 100))
         self.scale_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.scale_slider.setTickInterval(int(self.settings.scale_slider_step)) #some parsing from settings
-        self.scale_slider.setSingleStep(int(self.settings.scale_slider_step)) #some parsing from settings
+        self.scale_slider.setTickInterval(int(self.settings.scale_slider_step)) #some parsing from settings visual interval of ticks
+        self.scale_slider.setSingleStep(int(self.settings.scale_slider_step)) #some parsing from settings, sets up up and down key step behavior
+        self.scale_slider.setPageStep(int(self.settings.scale_slider_step)) #some parsing from settings, fixes macos click behavior and pgup pgdown behavior
         self.scale_slider.setTracking(False) #apply changes when slider is released
         self.scale_slider.valueChanged.connect(self.on_scale_changed) #trigger this func on value change
-        self.settings_layout.addWidget(self.scale_slider, 3, 1)
+        self.settings_layout.addWidget(self.scale_slider, 0, 3)
 
         self.scale_label = QLabel(f"{self.scale_slider.value()}%")
-        self.settings_layout.addWidget(self.scale_label, 3, 2)
+        self.settings_layout.addWidget(self.scale_label, 0, 4)
 
         self.btn_reset_scale = QPushButton("Reset")
         self.btn_reset_scale.clicked.connect(self.reset_scale)
-        self.settings_layout.addWidget(self.btn_reset_scale, 3, 3)
+        self.settings_layout.addWidget(self.btn_reset_scale, 1, 3)
+        
+        #Save button
+        self.btn_save = QPushButton("Save settings")
+        self.btn_save.clicked.connect(self.save_settings)
+        self.settings_layout.addWidget(self.btn_save, 3, 4)
 
-        # Row 5: Fullscreen mode
+        #Fullscreen mode
         fullscreen_label = QLabel("Fullscreen mode:")
-        self.settings_layout.addWidget(fullscreen_label, 4, 0)
+        self.settings_layout.addWidget(fullscreen_label, 2, 2)
 
         self.fullscreen_checkbox = QCheckBox("Enable fullscreen mode (F11)")
         self.fullscreen_checkbox.setChecked(self.settings.fullscreen)
         self.fullscreen_checkbox.stateChanged.connect(self.toggle_fullscreen)
-        self.settings_layout.addWidget(self.fullscreen_checkbox, 4, 1, 1, 3)
+        self.settings_layout.addWidget(self.fullscreen_checkbox, 2, 3, 1, 3)
 
         self.settings_group.setLayout(self.settings_layout)
 
@@ -823,7 +834,7 @@ class VMixController(QMainWindow):
     def on_scale_changed(self, value):
         scale_factor = round(value / int(self.settings.scale_slider_step)) * int(self.settings.scale_slider_step) # rounding slider value
         scale_factor = scale_factor / 100 # convert to scale factor
-        self.status_bar.showMessage(str(scale_factor))
+        self.status_bar.showMessage(str(scale_factor), 3000)
         self.scale_label.setText(f"{value}%")
         self.scale_slider.setValue(int(scale_factor * 100)) # set slider to round value
         self.apply_scale(scale_factor) # apply scale
@@ -1036,7 +1047,6 @@ class VMixController(QMainWindow):
             QCheckBox::indicator:checked {{
                 background: #4299e1;
                 border: {int(2 * self.settings.ui_scale)}px solid #63b3ed;
-                image: url('');
             }}
             QCheckBox::indicator:hover {{
                 border: {int(2 * self.settings.ui_scale)}px solid #718096;
@@ -1302,9 +1312,6 @@ class VMixController(QMainWindow):
                 base_size = self.base_sizes['window']
                 scaled_size = base_size * self.settings.ui_scale
                 self.resize(scaled_size)
-
-        # Save settings
-        self.settings.save()
 
     def exit_fullscreen(self):
         """Exit fullscreen mode when Escape key is pressed"""
