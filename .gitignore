@@ -1,5 +1,7 @@
-# Settings files
+
+#prog
 vmix_settings.json
+app.log
 
 # Python
 __pycache__/
@@ -22,6 +24,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.pyc
 
 # Virtual environments
 venv/

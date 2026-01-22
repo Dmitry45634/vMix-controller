@@ -47,6 +47,12 @@ A remote control application for vMix over the network. Allows switching sources
 - Make sure source is selected in preview
 - Check application console logs
 
+## FAQ
+Will you port app to different platforms?
+
+>Code is fully compatabile with Windows/MacOS/Linux, if you need to, you can build app by yourself.
+Moblie platform support is a bit complicated and needs a partial code rewrite. App is originally intended to use with Windows tablets. 
+
 ## Development
 
 Feel free to enhance and improve the application. If you find a bug or have ideas — create an issue or pull request.

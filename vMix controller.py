@@ -1,37 +1,42 @@
+
 import sys
+import os
 import json
 import requests
+import logging
 import xml.etree.ElementTree as ET
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    handlers=[
+        logging.FileHandler("app.log", encoding="utf-8"),
+        logging.StreamHandler(sys.stdout)  # оставляем вывод в консоль
+    ]
+)
+
 
 # ==================== SETTINGS CLASS ====================
 class Settings:
-    """
-    Settings class for storing and managing application configuration.
-    Handles loading/saving from/to JSON file with user preferences.
-    """
+    def __init__(self): #define deafault settings
+        logging.info("Init settings...")
+        self.ip = "127.0.0.1"
+        self.port = "8088"
+        self.login = ""
+        self.password = ""
+        self.remember_creds = False
+        self.show_settings = True
+        self.ui_scale = 1.0
+        self.fullscreen = False
+        self.version = 1.2
+        self.scale_slider_step = 5
 
-    def __init__(self):
-        """Initialize default settings"""
-        self.ip = "127.0.0.1"  # vMix server IP address
-        self.port = "8088"  # vMix API port (default: 8088)
-        self.login = ""  # vMix login (usually empty)
-        self.password = ""  # vMix password (usually empty)
-        self.remember_creds = False  # Remember credentials flag
-        self.show_settings = True  # Show settings panel on startup
-        self.ui_scale = 1.0  # UI scaling factor (0.7 to 2.2)
-        self.fullscreen = False  # Fullscreen mode flag
-        self.version = 1.1  # Application version
-
-    def load(self):
-        """
-        Load settings from JSON configuration file.
-        Creates default file if it doesn't exist.
-        """
+    def load(self): #try to parse from json
         try:
+            logging.info("Settings parse...")
             with open('vmix_settings.json', 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 self.ip = data.get('ip', self.ip)
@@ -40,15 +45,16 @@ class Settings:
                 self.password = data.get('password', self.password)
                 self.remember_creds = data.get('remember_creds', False)
                 self.show_settings = data.get('show_settings', True)
-                self.ui_scale = data.get('ui_scale', 1.0)
+                self.ui_scale = data.get('ui_scale', self.ui_scale)
                 self.fullscreen = data.get('fullscreen', False)
-                self.version = data.get('version', 1.1)
-        except FileNotFoundError:
-            # Create default settings file if it doesn't exist
+                self.version = data.get('version', self.version)
+                self.scale_slider_step = data.get('scale_slider_step', self.scale_slider_step)
+        except FileNotFoundError: #if theres no json create one
+            logging.info("No settings file found! Creating one...")
             self.save()
 
-    def save(self):
-        """Save current settings to JSON configuration file"""
+    def save(self): #save json with defined settings
+        logging.info("Saving settings file...")
         data = {
             'ip': self.ip,
             'port': self.port,
@@ -58,7 +64,8 @@ class Settings:
             'show_settings': self.show_settings,
             'ui_scale': self.ui_scale,
             'fullscreen': self.fullscreen,
-            'version': self.version
+            'version': self.version,
+            'scale_slider_step': self.scale_slider_step
         }
         with open('vmix_settings.json', 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
@@ -73,8 +80,9 @@ class vMixAPI:
 
     def __init__(self, ip, port):
         """Initialize API client with server IP and port"""
+        logging.info("API init...")
         self.base_url = f"http://{ip}:{port}/api"
-        self.timeout = 2  # Request timeout in seconds
+        self.timeout = 5  # Request timeout in second
 
     def send_command(self, command, **params):
         """
@@ -98,7 +106,7 @@ class vMixAPI:
             response = requests.get(url, timeout=self.timeout)
             return response.status_code == 200
         except Exception as e:
-            print(f"Command send error: {e}")
+            logging.error(f"Command send error: {e}")
             return False
 
     def get_xml_data(self):
@@ -115,16 +123,17 @@ class vMixAPI:
                 return response.text
             return None
         except requests.exceptions.ConnectionError as e:
-            print(f"Connection error: {e}")
+            logging.error(f"Connection error: {e}")
             return None
         except requests.exceptions.Timeout as e:
-            print(f"Connection timeout: {e}")
+            logging.error(f"Connection timeout: {e}")
             return None
         except Exception as e:
-            print(f"Data retrieval error: {e}")
+            logging.error(f"Data retrieval error: {e}")
             return None
 
     def get_inputs(self):
+        logging.info("Getting all inputs...")
         """
         Get list of all inputs from vMix.
 
@@ -152,13 +161,15 @@ class vMixAPI:
                     'key': input_elem.get('key', '')
                 }
                 inputs.append(input_data)
-
+            
+            logging.info(str(len(inputs)))
             return inputs
         except Exception as e:
-            print(f"XML parsing error: {e}")
+            logging.error(f"XML parsing error: {e}")
             return []
 
     def get_active_input(self):
+        logging.info('Getting active input...')
         """
         Get currently active (live) input number.
 
@@ -176,7 +187,7 @@ class vMixAPI:
                 return active_input.text
             return None
         except Exception as e:
-            print(f"Active input retrieval error: {e}")
+            logging.error(f"Active input retrieval error: {e}")
             return None
 
     def get_preview_input(self):
@@ -186,6 +197,7 @@ class vMixAPI:
         Returns:
             str: Preview input number or None if failed
         """
+        logging.info('Getting preview input...')
         xml_data = self.get_xml_data()
         if not xml_data:
             return None
@@ -197,7 +209,7 @@ class vMixAPI:
                 return preview_input.text
             return None
         except Exception as e:
-            print(f"Preview input retrieval error: {e}")
+            logging.error(f"Preview input retrieval error: {e}")
             return None
 
 
@@ -376,6 +388,7 @@ class VMixController(QMainWindow):
     """
 
     def __init__(self):
+        logging.info("Init main windows class")
         super().__init__()
         # Initialize settings and API
         self.settings = Settings()
@@ -434,6 +447,7 @@ class VMixController(QMainWindow):
         self.setup_hotkeys()
 
     def setup_hotkeys(self):
+        logging.info("Hotkey init")
         """Setup keyboard shortcuts for application"""
         # F11 for toggling fullscreen mode
         shortcut = QShortcut(QKeySequence("F11"), self)
@@ -445,10 +459,12 @@ class VMixController(QMainWindow):
 
     def auto_connect(self):
         """Attempt auto-connect if IP is not localhost"""
+        logging.info("Tried to autoconnect!")
         if self.settings.ip and self.settings.ip != "127.0.0.1":
             self.connect_to_vmix()
 
     def setup_ui(self):
+        logging.info("UI setting up...")
         """Setup all UI elements and layouts"""
         # Create central widget and main layout
         central_widget = QWidget()
@@ -705,28 +721,34 @@ class VMixController(QMainWindow):
         main_layout.addWidget(self.control_group)
 
         # ========== SETTINGS PANEL (BOTTOM) ==========
-        self.settings_group = QGroupBox("Connect to vMix")
+        self.settings_group = QGroupBox("Settings")
         self.settings_group.setVisible(self.settings.show_settings)
 
         self.settings_layout = QGridLayout()
         self.settings_layout.setSpacing(10)
         self.settings_layout.setContentsMargins(15, 15, 15, 15)
 
-        # Row 1: IP and Port
+        #IP and Port
+        
+        #label
         ip_label = QLabel("IP Address:")
         self.settings_layout.addWidget(ip_label, 0, 0)
 
+        #text boxes ip:port
         self.ip_edit = QLineEdit(self.settings.ip)
         self.ip_edit.setPlaceholderText("Example: 192.168.1.100")
-        self.settings_layout.addWidget(self.ip_edit, 0, 1)
-
-        port_label = QLabel("Port:")
-        self.settings_layout.addWidget(port_label, 0, 2)
 
         self.port_edit = QLineEdit(self.settings.port)
-        self.settings_layout.addWidget(self.port_edit, 0, 3)
+        self.port_edit.setPlaceholderText("8088")
+        
+        #create a layout
+        ip_port_layout = QHBoxLayout()
+        ip_port_layout.addWidget(self.ip_edit, 0)
+        ip_port_layout.addWidget(QLabel(":"))
+        ip_port_layout.addWidget(self.port_edit, 0)
+        self.settings_layout.addLayout(ip_port_layout, 0, 1)
 
-        # Row 2: Login and Password
+        # Login and Password
         login_label = QLabel("Login:")
         self.settings_layout.addWidget(login_label, 1, 0)
 
@@ -735,56 +757,65 @@ class VMixController(QMainWindow):
         self.settings_layout.addWidget(self.login_edit, 1, 1)
 
         pass_label = QLabel("Password:")
-        self.settings_layout.addWidget(pass_label, 1, 2)
+        self.settings_layout.addWidget(pass_label, 2, 0)
 
         self.pass_edit = QLineEdit(self.settings.password)
         self.pass_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self.pass_edit.setPlaceholderText("Usually not required")
-        self.settings_layout.addWidget(self.pass_edit, 1, 3)
+        self.pass_edit.setPlaceholderText("Your Password")
+        self.settings_layout.addWidget(self.pass_edit, 2, 1)
 
-        # Row 3: Checkbox and buttons
+        # Checkbox and connect
         self.remember_check = QCheckBox("Remember credentials")
         self.remember_check.setChecked(self.settings.remember_creds)
-        self.settings_layout.addWidget(self.remember_check, 2, 0, 1, 2)
-
-        self.btn_save = QPushButton("Save")
-        self.btn_save.clicked.connect(self.save_settings)
-        self.settings_layout.addWidget(self.btn_save, 2, 2)
-
+        
         self.btn_connect = QPushButton("Connect")
         self.btn_connect.clicked.connect(self.connect_to_vmix)
-        self.settings_layout.addWidget(self.btn_connect, 2, 3)
+        
+        connecting_layout = QHBoxLayout()
+        connecting_layout.setSpacing(40)
+        connecting_layout.addWidget(self.remember_check, 0)
+        connecting_layout.addWidget(self.btn_connect, 1)
+        self.settings_layout.addLayout(connecting_layout, 3, 1)
 
-        # Row 4: Scale slider - UPDATED FOR RELEASE-ONLY CHANGES
+        # Scale slider
         scale_label = QLabel("UI Scale:")
-        self.settings_layout.addWidget(scale_label, 3, 0)
+        self.settings_layout.addWidget(scale_label, 0, 2)
 
         self.scale_slider = QSlider(Qt.Orientation.Horizontal)
-        self.scale_slider.setRange(70, 220)  # 70% to 220%
+        self.scale_slider.setRange(70, 180)  # 70% to 180%
         self.scale_slider.setValue(int(self.settings.ui_scale * 100))
         self.scale_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.scale_slider.setTickInterval(10)
-        # Connect signal only for slider release
-        self.scale_slider.sliderReleased.connect(self.on_scale_released)
-        # Also track value for display
-        self.scale_slider.valueChanged.connect(self.update_scale_display)
-        self.settings_layout.addWidget(self.scale_slider, 3, 1)
+        self.scale_slider.setTickInterval(int(self.settings.scale_slider_step)) #some parsing from settings visual interval of ticks
+        self.scale_slider.setSingleStep(int(self.settings.scale_slider_step)) #some parsing from settings, sets up up and down key step behavior
+        self.scale_slider.setPageStep(int(self.settings.scale_slider_step)) #some parsing from settings, fixes macos click behavior and pgup pgdown behavior
+        self.scale_slider.setTracking(False) #apply changes when slider is released
+        self.scale_slider.valueChanged.connect(self.on_scale_changed) #trigger this func on value change
+        #alue = round(value / int(self.settings.scale_slider_step)) * int(self.settings.scale_slider_step) # rounding slider value
+        self.scale_slider.sliderMoved.connect(
+            lambda value: self.scale_label.setText(f"{round(value / int(self.settings.scale_slider_step)) * int(self.settings.scale_slider_step)}%")
+        )
+        self.settings_layout.addWidget(self.scale_slider, 0, 3)
 
         self.scale_label = QLabel(f"{self.scale_slider.value()}%")
-        self.settings_layout.addWidget(self.scale_label, 3, 2)
+        self.settings_layout.addWidget(self.scale_label, 0, 4)
 
         self.btn_reset_scale = QPushButton("Reset")
         self.btn_reset_scale.clicked.connect(self.reset_scale)
-        self.settings_layout.addWidget(self.btn_reset_scale, 3, 3)
+        self.settings_layout.addWidget(self.btn_reset_scale, 1, 3)
+        
+        #Save button
+        self.btn_save = QPushButton("Save settings")
+        self.btn_save.clicked.connect(self.save_settings)
+        self.settings_layout.addWidget(self.btn_save, 3, 4)
 
-        # Row 5: Fullscreen mode
+        #Fullscreen mode
         fullscreen_label = QLabel("Fullscreen mode:")
-        self.settings_layout.addWidget(fullscreen_label, 4, 0)
+        self.settings_layout.addWidget(fullscreen_label, 2, 2)
 
         self.fullscreen_checkbox = QCheckBox("Enable fullscreen mode (F11)")
         self.fullscreen_checkbox.setChecked(self.settings.fullscreen)
         self.fullscreen_checkbox.stateChanged.connect(self.toggle_fullscreen)
-        self.settings_layout.addWidget(self.fullscreen_checkbox, 4, 1, 1, 3)
+        self.settings_layout.addWidget(self.fullscreen_checkbox, 2, 3, 1, 3)
 
         self.settings_group.setLayout(self.settings_layout)
 
@@ -807,6 +838,7 @@ class VMixController(QMainWindow):
         """)
 
         self.status_bar.showMessage("Ready to connect")
+        logging.info("Ready to connect")
 
         # Version label in status bar
         version_str = "Version: " + str(self.settings.version)
@@ -830,11 +862,14 @@ class VMixController(QMainWindow):
         """Update scale display label without applying changes"""
         self.scale_label.setText(f"{value}%")
 
-    def on_scale_released(self):
-        """Apply scale changes only when slider is released"""
-        value = self.scale_slider.value()
-        scale_factor = value / 100.0
-        self.apply_scale(scale_factor)
+    def on_scale_changed(self, value):
+        scale_factor = round(value / int(self.settings.scale_slider_step)) * int(self.settings.scale_slider_step) # rounding slider value
+        scale_factor = scale_factor / 100 # convert to scale factor
+        self.status_bar.showMessage(str(scale_factor), 3000)
+        logging.info("Scaling changed to " + str(scale_factor))
+        self.scale_label.setText(f"{value}%")
+        self.scale_slider.setValue(int(scale_factor * 100)) # set slider to round value
+        self.apply_scale(scale_factor) # apply scale
 
     def get_large_button_style(self, bg_color="#2196F3"):
         """Generate CSS style for large buttons (QUICK PLAY, FTB) with scaling"""
@@ -1044,7 +1079,6 @@ class VMixController(QMainWindow):
             QCheckBox::indicator:checked {{
                 background: #4299e1;
                 border: {int(2 * self.settings.ui_scale)}px solid #63b3ed;
-                image: url('');
             }}
             QCheckBox::indicator:hover {{
                 border: {int(2 * self.settings.ui_scale)}px solid #718096;
@@ -1296,6 +1330,7 @@ class VMixController(QMainWindow):
             # Enter fullscreen mode
             self.showFullScreen()
             self.status_bar.showMessage("🖥️ Fullscreen mode enabled", 2000)
+            logging.info("Fullscreen on")
 
             # Save normal window geometry for restoration
             if not hasattr(self, 'normal_geometry'):
@@ -1304,15 +1339,13 @@ class VMixController(QMainWindow):
             # Exit fullscreen mode
             self.showNormal()
             self.status_bar.showMessage("🖥️ Fullscreen mode disabled", 2000)
+            logging.info("Fullscreen off")
 
             # Restore normal size with scaling
             if hasattr(self, 'normal_geometry'):
                 base_size = self.base_sizes['window']
                 scaled_size = base_size * self.settings.ui_scale
                 self.resize(scaled_size)
-
-        # Save settings
-        self.settings.save()
 
     def exit_fullscreen(self):
         """Exit fullscreen mode when Escape key is pressed"""
@@ -1351,6 +1384,7 @@ class VMixController(QMainWindow):
         self.settings.save()
 
         self.status_bar.showMessage("Settings saved!", 3000)
+        logging.info("Saved settings")
 
     def connect_to_vmix(self):
         """Connect to vMix instance with provided credentials"""
@@ -1359,9 +1393,11 @@ class VMixController(QMainWindow):
 
         if not ip:
             self.status_bar.showMessage("❌ Enter vMix IP address!", 3000)
+            logging.warning("IP is not valid")
             return
 
         self.status_bar.showMessage(f"Connecting to {ip}:{port}...")
+        logging.info(f"Connecting to {ip}:{port}...")
         self.btn_connect.setEnabled(False)  # Disable button during connection
         QApplication.processEvents()  # Update UI immediately
 
@@ -1371,6 +1407,7 @@ class VMixController(QMainWindow):
 
             if xml_data:
                 self.status_bar.showMessage(f"✅ Connected to vMix {ip}:{port}")
+                logging.info("Connected!")
                 self.btn_connect.setText("Connected")
                 self.btn_connect.setStyleSheet(self.get_settings_button_style("#48bb78", "#38a169"))
 
@@ -1387,13 +1424,14 @@ class VMixController(QMainWindow):
                 self.load_inputs()
             else:
                 self.status_bar.showMessage("❌ Failed to connect to vMix", 3000)
+                logging.info("Failed to connect")
                 self.btn_connect.setText("Connect")
                 self.btn_connect.setStyleSheet(self.get_settings_button_style("#4299e1", "#3182ce"))
                 self.vmix_api = None  # Reset API on failure
 
         except Exception as e:
             # Log error to console only
-            print(f"Connection error: {e}")
+            logging.error(f"Connection error: {e}")
             self.status_bar.showMessage("❌ Connection error", 3000)
             self.btn_connect.setText("Connect")
             self.btn_connect.setStyleSheet(self.get_settings_button_style("#4299e1", "#3182ce"))
@@ -1448,7 +1486,7 @@ class VMixController(QMainWindow):
 
         except Exception as e:
             # Log error only
-            print(f"Inputs loading error: {e}")
+            logging.error(f"Inputs loading error: {e}")
             self.status_bar.showMessage(f"❌ Inputs loading error", 2000)
 
     def refresh_inputs(self):
@@ -1503,7 +1541,7 @@ class VMixController(QMainWindow):
             else:
                 self.status_bar.showMessage(f"❌ Preview set error", 3000)
         except Exception as e:
-            print(f"Command send error: {e}")
+            logging.error(f"Command send error: {e}")
             self.status_bar.showMessage(f"❌ Command send error", 2000)
 
     def update_tile_styles(self):
@@ -1570,7 +1608,7 @@ class VMixController(QMainWindow):
                 else:
                     self.status_bar.showMessage(f"❌ Transition error", 3000)
         except Exception as e:
-            print(f"Transition error: {e}")
+            logging.error(f"Transition error: {e}")
             self.status_bar.showMessage(f"❌ Transition error", 2000)
 
     def fade_to_black(self):
@@ -1595,7 +1633,7 @@ class VMixController(QMainWindow):
                     self.status_bar.showMessage("❌ Fade To Black error", 3000)
             except Exception as e:
                 self.ftb_active = False
-                print(f"Fade To Black error: {e}")
+                logging.error(f"Fade To Black error: {e}")
                 self.btn_ftb.setStyleSheet(self.get_large_button_style("#666666"))
                 self.status_bar.showMessage(f"❌ Fade To Black error", 2000)
         else:
@@ -1606,7 +1644,7 @@ class VMixController(QMainWindow):
                     self.btn_ftb.setStyleSheet(self.get_large_button_style("#666666"))
                     self.status_bar.showMessage("🌙 Fade To Black disabled", 2000)
             except Exception as e:
-                print(f"Fade To Black disable error: {e}")
+                logging.error(f"Fade To Black disable error: {e}")
                 self.status_bar.showMessage(f"❌ Fade To Black disable error", 2000)
 
     def overlay_selected(self, layer):
@@ -1625,7 +1663,7 @@ class VMixController(QMainWindow):
             else:
                 self.status_bar.showMessage(f"❌ Overlay on layer {layer} error", 3000)
         except Exception as e:
-            print(f"Overlay error: {e}")
+            logging.error(f"Overlay error: {e}")
             self.status_bar.showMessage(f"❌ Overlay error", 2000)
 
     def remove_overlay(self):
@@ -1642,7 +1680,7 @@ class VMixController(QMainWindow):
             self.update_all_styles()
             self.status_bar.showMessage(f"✖ All overlays removed", 2000)
         except Exception as e:
-            print(f"Overlay remove error: {e}")
+            logging.error(f"Overlay remove error: {e}")
             self.status_bar.showMessage(f"❌ Overlay remove error", 2000)
 
     def update_states(self):
@@ -1796,6 +1834,7 @@ class QFlowLayout(QLayout):
 # ==================== APPLICATION ENTRY POINT ====================
 def main():
     """Main application entry point"""
+    logging.info("-------------------Initializing app...-------------------")
     app = QApplication(sys.argv)
     app.setStyle("Fusion")  # Use Fusion style for consistent look
 
@@ -1816,9 +1855,6 @@ def main():
         }
         QLineEdit:focus, QComboBox:focus {
             border: 1px solid #777;
-        }
-        QPushButton {
-            cursor: pointer;
         }
         QCheckBox {
             color: #ddd;
