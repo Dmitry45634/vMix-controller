@@ -789,6 +789,10 @@ class VMixController(QMainWindow):
         self.scale_slider.setPageStep(int(self.settings.scale_slider_step)) #some parsing from settings, fixes macos click behavior and pgup pgdown behavior
         self.scale_slider.setTracking(False) #apply changes when slider is released
         self.scale_slider.valueChanged.connect(self.on_scale_changed) #trigger this func on value change
+        #alue = round(value / int(self.settings.scale_slider_step)) * int(self.settings.scale_slider_step) # rounding slider value
+        self.scale_slider.sliderMoved.connect(
+            lambda value: self.scale_label.setText(f"{round(value / int(self.settings.scale_slider_step)) * int(self.settings.scale_slider_step)}%")
+        )
         self.settings_layout.addWidget(self.scale_slider, 0, 3)
 
         self.scale_label = QLabel(f"{self.scale_slider.value()}%")
