@@ -1,4 +1,4 @@
-
+#NOTE!: IF YOU CUSTOMIZE UI, ANY SIZE PROPERTIES MUST USE CONVERT TO SCALING METHOD
 import sys
 import os
 import json
@@ -470,8 +470,8 @@ class VMixController(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(2)
-        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.setSpacing(int(2 * self.settings.ui_scale))
+        main_layout.setContentsMargins(5 * self.settings.ui_scale, 5 * self.settings.ui_scale, 5 * self.settings.ui_scale, 5 * self.settings.ui_scale)
 
         # ========== INPUTS HEADER ==========
         inputs_header_layout = QHBoxLayout()
@@ -725,8 +725,8 @@ class VMixController(QMainWindow):
         self.settings_group.setVisible(self.settings.show_settings)
 
         self.settings_layout = QGridLayout()
-        self.settings_layout.setSpacing(10)
-        self.settings_layout.setContentsMargins(15, 15, 15, 15)
+        self.settings_layout.setSpacing(10 * self.settings.ui_scale)
+        self.settings_layout.setContentsMargins(15 * self.settings.ui_scale, 15 * self.settings.ui_scale, 15 * self.settings.ui_scale, 15 * self.settings.ui_scale)
 
         #IP and Port
         
@@ -772,7 +772,7 @@ class VMixController(QMainWindow):
         self.btn_connect.clicked.connect(self.connect_to_vmix)
         
         connecting_layout = QHBoxLayout()
-        connecting_layout.setSpacing(40)
+        connecting_layout.setSpacing(40 * self.settings.ui_scale)
         connecting_layout.addWidget(self.remember_check, 0)
         connecting_layout.addWidget(self.btn_connect, 1)
         self.settings_layout.addLayout(connecting_layout, 3, 1)
@@ -857,6 +857,10 @@ class VMixController(QMainWindow):
         self.update_all_styles()
 
     # ========== SCALING AND STYLING METHODS ==========
+    def scl_f(self, value):
+        value = value * self.settings.ui_scale
+        value = int(value)
+        return value
 
     def update_scale_display(self, value):
         """Update scale display label without applying changes"""
@@ -1871,7 +1875,7 @@ def main():
             background-color: #ffffff;
             border: 1px solid #888888;
         }
-        QCheckBox::indicator:checked:disabled {
+        QCheckсBox::indicator:checked:disabled {
             background-color: #aaaaaa;
             border: 1px solid #888888;
         }
