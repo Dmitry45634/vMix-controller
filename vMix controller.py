@@ -1,4 +1,4 @@
-#NOTE!: IF YOU CUSTOMIZE UI, ANY SIZE PROPERTIES MUST USE CONVERT TO SCALING METHOD
+#NOTE!: IF YOU CUSTOMIZE UI, ANY SIZE PROPERTIES MUST USE def scl_f() CONVERT TO SCALING METHOD 
 import sys
 import os
 import json
@@ -221,6 +221,8 @@ class InputTile(QWidget):
     """
     clicked = pyqtSignal(str)  # Signal emitted when tile is clicked
 
+
+#TODO: Refactor this shitty code, wtf is going on here...
     def __init__(self, input_data, is_active=False, is_preview=False, parent=None, scale_factor=1.0):
         """
         Initialize input tile widget.
@@ -463,6 +465,287 @@ class VMixController(QMainWindow):
         if self.settings.ip and self.settings.ip != "127.0.0.1":
             self.connect_to_vmix()
 
+
+
+    # ========== SCALING AND STYLING METHODS ==========
+    def scl_f(self, value):
+        value = value * self.settings.ui_scale
+        value = int(value)
+        return value
+
+    def update_scale_display(self, value):
+        """Update scale display label without applying changes"""
+        self.scale_label.setText(f"{value}%")
+
+    def on_scale_changed(self, value):
+        scale_factor = round(value / int(self.settings.scale_slider_step)) * int(self.settings.scale_slider_step) # rounding slider value
+        scale_factor = scale_factor / 100 # convert to scale factor
+        self.status_bar.showMessage(str(scale_factor), 3000)
+        logging.info("Scaling changed to " + str(scale_factor))
+        self.scale_label.setText(f"{value}%")
+        self.scale_slider.setValue(int(scale_factor * 100)) # set slider to round value
+        self.apply_scale(scale_factor) # apply scale
+
+    def get_large_button_style(self, bg_color="#2196F3"):
+        """Generate CSS style for large buttons (QUICK PLAY, FTB) with scaling"""
+        return f"""
+            QPushButton {{
+                padding: {self.scl_f(14)}px {self.scl_f(14)}px;
+                font-weight: bold;
+                font-size: {self.scl_f(15)}px;
+                border: {self.scl_f(2)}px solid #666;
+                border-radius: {self.scl_f(6)}px;
+                min-width: {self.scl_f(120)}px;
+                color: white;
+                background: {bg_color};
+            }}
+            QPushButton:hover {{
+                border: {self.scl_f(2)}px solid #888;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #505050, stop:1 #404040);
+            }}
+            QPushButton:disabled {{
+                background: #555;
+                color: #888;
+            }}
+        """
+
+    def get_ftb_active_style(self):
+        """Generate flashing style for active FTB button"""
+        if self.ftb_flash_state:
+            return f"""
+                QPushButton {{
+                    padding: {self.scl_f(14)}px {self.scl_f(25)}px;
+                    font-weight: bold;
+                    font-size: {self.scl_f(15)}px;
+                    border: {self.scl_f(2)}px solid #ff0000;
+                    border-radius: {self.scl_f(6)}px;
+                    min-width: {self.scl_f(120)}px;
+                    color: white;
+                    background: #ff4444;
+                }}
+                QPushButton:hover {{
+                    background: #ff6666;
+                    border: {self.scl_f(2)}px solid #ff3333;
+                }}
+            """
+        else:
+            return f"""
+                QPushButton {{
+                    padding: {self.scl_f(14)}px {self.scl_f(25)}px;
+                    font-weight: bold;
+                    font-size: {self.scl_f(15)}px;
+                    border: {self.scl_f(2)}px solid #cc0000;
+                    border-radius: {self.scl_f(6)}px;
+                    min-width: {self.scl_f(120)}px;
+                    color: white;
+                    background: #cc3333;
+                }}
+                QPushButton:hover {{
+                    background: #dd4444;
+                    border: {self.scl_f(2)}px solid #dd2222;
+                }}
+            """
+
+    def get_small_button_style(self, bg_color):
+        """Generate CSS style for small buttons (Settings, Refresh)"""
+        return f"""
+            QPushButton {{
+                padding: {self.scl_f(5)}px {self.scl_f(10)}px;
+                font-weight: bold;
+                font-size: {self.scl_f(11)}px;
+                border: {self.scl_f(1)}px solid #555;
+                border-radius: {self.scl_f(4)}px;
+                background: {bg_color};
+                color: white;
+            }}
+            QPushButton:hover {{
+                background: {self.darken_color(bg_color)};
+                border: {self.scl_f(1)}px solid #666;
+            }}
+            QPushButton:disabled {{
+                background: #555;
+                color: #888;
+            }}
+        """
+
+    def get_overlay_button_style(self):
+        """Generate CSS style for overlay buttons"""
+        return f"""
+            QPushButton {{
+                padding: {self.scl_f(6)}px {self.scl_f(10)}px;
+                font-weight: bold;
+                border: {self.scl_f(2)}px solid #555;
+                border-radius: {self.scl_f(4)}px;
+                min-width: {self.scl_f(70)}px;
+                color: white;
+                background: #666666;
+            }}
+            QPushButton:hover {{
+                border: {self.scl_f(2)}px solid #777;
+                background: #777777;
+            }}
+            QPushButton:disabled {{
+                background: #555;
+                color: #888;
+            }}
+        """
+
+    def get_active_overlay_button_style(self):
+        """Generate CSS style for active overlay button (orange highlight)"""
+        return f"""
+            QPushButton {{
+                padding: {self.scl_f(6)}px {self.scl_f(10)}px;
+                font-weight: bold;
+                border: {self.scl_f(2)}px solid #F57C00;
+                border-radius: {self.scl_f(4)}px;
+                min-width: {self.scl_f(70)}px;
+                color: white;
+                background: #FF9800;
+            }}
+            QPushButton:hover {{
+                border: {self.scl_f(2)}px solid #FFB74D;
+                background: #FFB74D;
+            }}
+        """
+
+    def get_heading_font_size(self, widget, font_size):
+        if isinstance(widget, QLabel):
+            font = widget.font()
+            font.setPointSize(self.scl_f(font_size))
+            font.setBold(True)
+            logging.info(f"Got heading style, font: {font}")
+            return font
+    
+    def get_preview_label_style(self):
+        """Generate CSS style for preview label (blue theme)"""
+        return f"""
+            QLabel {{
+                padding: {self.scl_f(8)}px {self.scl_f(12)}px;
+                font-weight: bold;
+                font-size: {self.scl_f(13)}px;
+                border: {self.scl_f(3)}px solid #44aaff;
+                border-radius: {self.scl_f(6)}px;
+                background: #2a2a2a;
+                color: #44aaff;
+                min-width: {self.scl_f(180)}px;
+                min-height: {self.scl_f(23)}px;
+                text-align: center;
+            }}
+        """
+
+    def get_active_label_style(self):
+        """Generate CSS style for program label (red theme)"""
+        return f"""
+            QLabel {{
+                padding: {self.scl_f(8)}px {self.scl_f(12)}px;
+                font-weight: bold;
+                font-size: {self.scl_f(13)}px;
+                border: {self.scl_f(3)}px solid #ff4444;
+                border-radius: {self.scl_f(6)}px;
+                background: #2a2a2a;
+                color: #ff4444;
+                min-width: {self.scl_f(180)}px;
+                min-height: {self.scl_f(23)}px;
+                text-align: center;
+            }}
+        """
+
+    def get_label_style(self):
+        """Generate CSS style for labels in settings panel"""
+        return f"""
+            QLabel {{
+                color: #cbd5e0;
+                font-weight: bold;
+                font-size: {self.scl_f(12)}px;
+                padding: {self.scl_f(2)}px;
+            }}
+        """
+
+    def get_input_style(self):
+        """Generate CSS style for input fields"""
+        return f"""
+            QLineEdit {{
+                padding: {self.scl_f(8)}px {self.scl_f(12)}px;
+                font-size: {self.scl_f(13)}px;
+                border: {self.scl_f(1)}px solid #4a5568;
+                border-radius: {self.scl_f(5)}px;
+                background: #2d3748;
+                color: #e2e8f0;
+                selection-background-color: #4299e1;
+            }}
+            QLineEdit:focus {{
+                border: {self.scl_f(1)}px solid #4299e1;
+                background: #2d3748;
+            }}
+            QLineEdit:hover {{
+                border: {self.scl_f(1)}px solid #718096;
+            }}
+        """
+
+    def get_checkbox_style(self):
+        """Generate CSS style for checkboxes"""
+        return f"""
+            QCheckBox {{
+                color: #cbd5e0;
+                font-weight: bold;
+                font-size: {self.scl_f(12)}px;
+                spacing: {self.scl_f(10)}px;
+            }}
+            QCheckBox::indicator {{
+                width: {self.scl_f(20)}px;
+                height: {self.scl_f(20)}px;
+                background: #2d3748;
+                border: {self.scl_f(2)}px solid #4a5568;
+                border-radius: {self.scl_f(4)}px;
+            }}
+            QCheckBox::indicator:checked {{
+                background: #4299e1;
+                border: {self.scl_f(2)}px solid #63b3ed;
+            }}
+            QCheckBox::indicator:hover {{
+                border: {self.scl_f(2)}px solid #718096;
+            }}
+        """
+
+    def get_settings_button_style(self, color1, color2):
+        """Generate CSS style for buttons in settings panel with gradient"""
+        return f"""
+            QPushButton {{
+                padding: {self.scl_f(8)}px {self.scl_f(16)}px;
+                font-weight: bold;
+                font-size: {self.scl_f(12)}px;
+                border: none;
+                border-radius: {self.scl_f(5)}px;
+                min-width: {self.scl_f(80)}px;
+                color: white;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 {color1}, stop:1 {color2});
+            }}
+            QPushButton:hover {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 {self.lighten_color(color1)}, stop:1 {self.lighten_color(color2)});
+            }}
+            QPushButton:pressed {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 {self.darken_color(color1)}, stop:1 {self.darken_color(color2)});
+            }}
+        """
+
+    def darken_color(self, color):
+        """Darken color by 10% (simplified implementation)"""
+        # Simplified implementation - in production you'd want proper color manipulation
+        if color.startswith('#'):
+            return color  # Implement proper color darkening if needed
+        return color
+
+    def lighten_color(self, color):
+        """Lighten color by 10% (simplified implementation)"""
+        # Simplified implementation - in production you'd want proper color manipulation
+        if color.startswith('#'):
+            return color  # Implement proper color lightening if needed
+        return color
+
     def setup_ui(self):
         logging.info("UI setting up...")
         """Setup all UI elements and layouts"""
@@ -470,8 +753,8 @@ class VMixController(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(int(2 * self.settings.ui_scale))
-        main_layout.setContentsMargins(5 * self.settings.ui_scale, 5 * self.settings.ui_scale, 5 * self.settings.ui_scale, 5 * self.settings.ui_scale)
+        main_layout.setSpacing(self.scl_f(2))
+        main_layout.setContentsMargins(self.scl_f(5), self.scl_f(5), self.scl_f(5), self.scl_f(5))
 
         # ========== INPUTS HEADER ==========
         inputs_header_layout = QHBoxLayout()
@@ -615,11 +898,10 @@ class VMixController(QMainWindow):
         self.overlay_label = QLabel("OVERLAY")
         self.overlay_label.setStyleSheet("""
             QLabel {
-                font-weight: bold;
-                font-size: 13px;
                 color: #bbb;
             }
         """)
+        self.overlay_label.setFont(self.get_heading_font_size(self.overlay_label, 13))
         self.overlay_layout.addWidget(self.overlay_label)
 
         # Overlay buttons container
@@ -677,27 +959,25 @@ class VMixController(QMainWindow):
         self.labels_row.setContentsMargins(0, 0, 0, 0)
 
         self.preview_label = QLabel("PREVIEW")
-        self.preview_label.setStyleSheet("""
-            QLabel {
-                font-weight: bold;
-                font-size: 13px;
+        self.preview_label.setStyleSheet(f"""
+            QLabel {{
                 color: #44aaff;
-                min-width: 180px;
+                min-width: {self.scl_f(180)}px;
                 text-align: center;
-            }
+            }}
         """)
+        self.preview_label.setFont(self.get_heading_font_size(self.preview_label, 13))
         self.labels_row.addWidget(self.preview_label)
 
         self.active_label = QLabel("PROGRAM")
-        self.active_label.setStyleSheet("""
-            QLabel {
-                font-weight: bold;
-                font-size: 13px;
+        self.active_label.setStyleSheet(f"""
+            QLabel {{
                 color: #ff4444;
-                min-width: 180px;
+                min-width: {self.scl_f(180)}px;
                 text-align: center;
-            }
+            }}
         """)
+        self.active_label.setFont(self.get_heading_font_size(self.active_label, 13))
         self.labels_row.addWidget(self.active_label)
 
         self.preview_active_layout.addLayout(self.labels_row)
@@ -725,8 +1005,8 @@ class VMixController(QMainWindow):
         self.settings_group.setVisible(self.settings.show_settings)
 
         self.settings_layout = QGridLayout()
-        self.settings_layout.setSpacing(10 * self.settings.ui_scale)
-        self.settings_layout.setContentsMargins(15 * self.settings.ui_scale, 15 * self.settings.ui_scale, 15 * self.settings.ui_scale, 15 * self.settings.ui_scale)
+        self.settings_layout.setSpacing(self.scl_f(10))
+        self.settings_layout.setContentsMargins(self.scl_f(15), self.scl_f(15), self.scl_f(15), self.scl_f(15))
 
         #IP and Port
         
@@ -772,7 +1052,7 @@ class VMixController(QMainWindow):
         self.btn_connect.clicked.connect(self.connect_to_vmix)
         
         connecting_layout = QHBoxLayout()
-        connecting_layout.setSpacing(40 * self.settings.ui_scale)
+        connecting_layout.setSpacing(self.scl_f(40))
         connecting_layout.addWidget(self.remember_check, 0)
         connecting_layout.addWidget(self.btn_connect, 1)
         self.settings_layout.addLayout(connecting_layout, 3, 1)
@@ -855,281 +1135,11 @@ class VMixController(QMainWindow):
 
         # Initialize all styles after creating widgets
         self.update_all_styles()
-
-    # ========== SCALING AND STYLING METHODS ==========
-    def scl_f(self, value):
-        value = value * self.settings.ui_scale
-        value = int(value)
-        return value
-
-    def update_scale_display(self, value):
-        """Update scale display label without applying changes"""
-        self.scale_label.setText(f"{value}%")
-
-    def on_scale_changed(self, value):
-        scale_factor = round(value / int(self.settings.scale_slider_step)) * int(self.settings.scale_slider_step) # rounding slider value
-        scale_factor = scale_factor / 100 # convert to scale factor
-        self.status_bar.showMessage(str(scale_factor), 3000)
-        logging.info("Scaling changed to " + str(scale_factor))
-        self.scale_label.setText(f"{value}%")
-        self.scale_slider.setValue(int(scale_factor * 100)) # set slider to round value
-        self.apply_scale(scale_factor) # apply scale
-
-    def get_large_button_style(self, bg_color="#2196F3"):
-        """Generate CSS style for large buttons (QUICK PLAY, FTB) with scaling"""
-        return f"""
-            QPushButton {{
-                padding: {int(14 * self.settings.ui_scale)}px {int(25 * self.settings.ui_scale)}px;
-                font-weight: bold;
-                font-size: {int(15 * self.settings.ui_scale)}px;
-                border: {int(2 * self.settings.ui_scale)}px solid #666;
-                border-radius: {int(6 * self.settings.ui_scale)}px;
-                min-width: {int(120 * self.settings.ui_scale)}px;
-                color: white;
-                background: {bg_color};
-            }}
-            QPushButton:hover {{
-                border: {int(2 * self.settings.ui_scale)}px solid #888;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #505050, stop:1 #404040);
-            }}
-            QPushButton:disabled {{
-                background: #555;
-                color: #888;
-            }}
-        """
-
-    def get_ftb_active_style(self):
-        """Generate flashing style for active FTB button"""
-        if self.ftb_flash_state:
-            return f"""
-                QPushButton {{
-                    padding: {int(14 * self.settings.ui_scale)}px {int(25 * self.settings.ui_scale)}px;
-                    font-weight: bold;
-                    font-size: {int(15 * self.settings.ui_scale)}px;
-                    border: {int(2 * self.settings.ui_scale)}px solid #ff0000;
-                    border-radius: {int(6 * self.settings.ui_scale)}px;
-                    min-width: {int(120 * self.settings.ui_scale)}px;
-                    color: white;
-                    background: #ff4444;
-                }}
-                QPushButton:hover {{
-                    background: #ff6666;
-                    border: {int(2 * self.settings.ui_scale)}px solid #ff3333;
-                }}
-            """
-        else:
-            return f"""
-                QPushButton {{
-                    padding: {int(14 * self.settings.ui_scale)}px {int(25 * self.settings.ui_scale)}px;
-                    font-weight: bold;
-                    font-size: {int(15 * self.settings.ui_scale)}px;
-                    border: {int(2 * self.settings.ui_scale)}px solid #cc0000;
-                    border-radius: {int(6 * self.settings.ui_scale)}px;
-                    min-width: {int(120 * self.settings.ui_scale)}px;
-                    color: white;
-                    background: #cc3333;
-                }}
-                QPushButton:hover {{
-                    background: #dd4444;
-                    border: {int(2 * self.settings.ui_scale)}px solid #dd2222;
-                }}
-            """
-
-    def get_small_button_style(self, bg_color):
-        """Generate CSS style for small buttons (Settings, Refresh)"""
-        return f"""
-            QPushButton {{
-                padding: {int(5 * self.settings.ui_scale)}px {int(10 * self.settings.ui_scale)}px;
-                font-weight: bold;
-                font-size: {int(11 * self.settings.ui_scale)}px;
-                border: {int(1 * self.settings.ui_scale)}px solid #555;
-                border-radius: {int(4 * self.settings.ui_scale)}px;
-                background: {bg_color};
-                color: white;
-            }}
-            QPushButton:hover {{
-                background: {self.darken_color(bg_color)};
-                border: {int(1 * self.settings.ui_scale)}px solid #666;
-            }}
-            QPushButton:disabled {{
-                background: #555;
-                color: #888;
-            }}
-        """
-
-    def get_overlay_button_style(self):
-        """Generate CSS style for overlay buttons"""
-        return f"""
-            QPushButton {{
-                padding: {int(6 * self.settings.ui_scale)}px {int(10 * self.settings.ui_scale)}px;
-                font-weight: bold;
-                border: {int(2 * self.settings.ui_scale)}px solid #555;
-                border-radius: {int(4 * self.settings.ui_scale)}px;
-                min-width: {int(70 * self.settings.ui_scale)}px;
-                color: white;
-                background: #666666;
-            }}
-            QPushButton:hover {{
-                border: {int(2 * self.settings.ui_scale)}px solid #777;
-                background: #777777;
-            }}
-            QPushButton:disabled {{
-                background: #555;
-                color: #888;
-            }}
-        """
-
-    def get_active_overlay_button_style(self):
-        """Generate CSS style for active overlay button (orange highlight)"""
-        return f"""
-            QPushButton {{
-                padding: {int(6 * self.settings.ui_scale)}px {int(10 * self.settings.ui_scale)}px;
-                font-weight: bold;
-                border: {int(2 * self.settings.ui_scale)}px solid #F57C00;
-                border-radius: {int(4 * self.settings.ui_scale)}px;
-                min-width: {int(70 * self.settings.ui_scale)}px;
-                color: white;
-                background: #FF9800;
-            }}
-            QPushButton:hover {{
-                border: {int(2 * self.settings.ui_scale)}px solid #FFB74D;
-                background: #FFB74D;
-            }}
-        """
-
-    def get_preview_label_style(self):
-        """Generate CSS style for preview label (blue theme)"""
-        return f"""
-            QLabel {{
-                padding: {int(8 * self.settings.ui_scale)}px {int(12 * self.settings.ui_scale)}px;
-                font-weight: bold;
-                font-size: {int(13 * self.settings.ui_scale)}px;
-                border: {int(3 * self.settings.ui_scale)}px solid #44aaff;
-                border-radius: {int(6 * self.settings.ui_scale)}px;
-                background: #2a2a2a;
-                color: #44aaff;
-                min-width: {int(180 * self.settings.ui_scale)}px;
-                min-height: {int(23 * self.settings.ui_scale)}px;
-                text-align: center;
-            }}
-        """
-
-    def get_active_label_style(self):
-        """Generate CSS style for program label (red theme)"""
-        return f"""
-            QLabel {{
-                padding: {int(8 * self.settings.ui_scale)}px {int(12 * self.settings.ui_scale)}px;
-                font-weight: bold;
-                font-size: {int(13 * self.settings.ui_scale)}px;
-                border: {int(3 * self.settings.ui_scale)}px solid #ff4444;
-                border-radius: {int(6 * self.settings.ui_scale)}px;
-                background: #2a2a2a;
-                color: #ff4444;
-                min-width: {int(180 * self.settings.ui_scale)}px;
-                min-height: {int(23 * self.settings.ui_scale)}px;
-                text-align: center;
-            }}
-        """
-
-    def get_label_style(self):
-        """Generate CSS style for labels in settings panel"""
-        return f"""
-            QLabel {{
-                color: #cbd5e0;
-                font-weight: bold;
-                font-size: {int(12 * self.settings.ui_scale)}px;
-                padding: {int(2 * self.settings.ui_scale)}px;
-            }}
-        """
-
-    def get_input_style(self):
-        """Generate CSS style for input fields"""
-        return f"""
-            QLineEdit {{
-                padding: {int(8 * self.settings.ui_scale)}px {int(12 * self.settings.ui_scale)}px;
-                font-size: {int(13 * self.settings.ui_scale)}px;
-                border: {int(1 * self.settings.ui_scale)}px solid #4a5568;
-                border-radius: {int(5 * self.settings.ui_scale)}px;
-                background: #2d3748;
-                color: #e2e8f0;
-                selection-background-color: #4299e1;
-            }}
-            QLineEdit:focus {{
-                border: {int(1 * self.settings.ui_scale)}px solid #4299e1;
-                background: #2d3748;
-            }}
-            QLineEdit:hover {{
-                border: {int(1 * self.settings.ui_scale)}px solid #718096;
-            }}
-        """
-
-    def get_checkbox_style(self):
-        """Generate CSS style for checkboxes"""
-        return f"""
-            QCheckBox {{
-                color: #cbd5e0;
-                font-weight: bold;
-                font-size: {int(12 * self.settings.ui_scale)}px;
-                spacing: {int(10 * self.settings.ui_scale)}px;
-            }}
-            QCheckBox::indicator {{
-                width: {int(20 * self.settings.ui_scale)}px;
-                height: {int(20 * self.settings.ui_scale)}px;
-                background: #2d3748;
-                border: {int(2 * self.settings.ui_scale)}px solid #4a5568;
-                border-radius: {int(4 * self.settings.ui_scale)}px;
-            }}
-            QCheckBox::indicator:checked {{
-                background: #4299e1;
-                border: {int(2 * self.settings.ui_scale)}px solid #63b3ed;
-            }}
-            QCheckBox::indicator:hover {{
-                border: {int(2 * self.settings.ui_scale)}px solid #718096;
-            }}
-        """
-
-    def get_settings_button_style(self, color1, color2):
-        """Generate CSS style for buttons in settings panel with gradient"""
-        return f"""
-            QPushButton {{
-                padding: {int(8 * self.settings.ui_scale)}px {int(16 * self.settings.ui_scale)}px;
-                font-weight: bold;
-                font-size: {int(12 * self.settings.ui_scale)}px;
-                border: none;
-                border-radius: {int(5 * self.settings.ui_scale)}px;
-                min-width: {int(80 * self.settings.ui_scale)}px;
-                color: white;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 {color1}, stop:1 {color2});
-            }}
-            QPushButton:hover {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 {self.lighten_color(color1)}, stop:1 {self.lighten_color(color2)});
-            }}
-            QPushButton:pressed {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 {self.darken_color(color1)}, stop:1 {self.darken_color(color2)});
-            }}
-        """
-
-    def darken_color(self, color):
-        """Darken color by 10% (simplified implementation)"""
-        # Simplified implementation - in production you'd want proper color manipulation
-        if color.startswith('#'):
-            return color  # Implement proper color darkening if needed
-        return color
-
-    def lighten_color(self, color):
-        """Lighten color by 10% (simplified implementation)"""
-        # Simplified implementation - in production you'd want proper color manipulation
-        if color.startswith('#'):
-            return color  # Implement proper color lightening if needed
-        return color
-
+    
     # ========== SCALING APPLICATION METHODS ==========
 
     def apply_scale(self, scale_factor):
+        logging.info("Applying scale...")
         """
         Apply scaling factor to entire UI.
 
@@ -1144,6 +1154,9 @@ class VMixController(QMainWindow):
             base_window_size = self.base_sizes['window']
             new_window_size = base_window_size * scale_factor
             self.resize(new_window_size)
+            logging.info(f"Set new windows size {new_window_size}")
+        else:
+            self.setup_ui()
 
         # Update all styles with new scale
         self.update_all_styles()
@@ -1155,6 +1168,7 @@ class VMixController(QMainWindow):
         self.settings.save()
 
     def update_all_styles(self):
+        logging.info("Updating styles...")
         """Update all widget styles with current scale factor"""
         # Update large buttons
         self.btn_quick_play.setStyleSheet(self.get_large_button_style())
@@ -1186,23 +1200,27 @@ class VMixController(QMainWindow):
         self.preview_input_label.setStyleSheet(self.get_preview_label_style())
         self.active_input_label.setStyleSheet(self.get_active_label_style())
 
+        self.overlay_label.setFont(self.get_heading_font_size(self.overlay_label, 13))
+        self.preview_label.setFont(self.get_heading_font_size(self.preview_label, 13))
+        self.active_label.setFont(self.get_heading_font_size(self.active_label, 13))
+
         # Update settings panel
         self.settings_group.setStyleSheet(f"""
             QGroupBox {{
                 font-weight: bold;
-                font-size: {int(14 * self.settings.ui_scale)}px;
-                border: {int(2 * self.settings.ui_scale)}px solid #4a5568;
-                border-radius: {int(8 * self.settings.ui_scale)}px;
-                margin-top: {int(5 * self.settings.ui_scale)}px;
-                padding-top: {int(15 * self.settings.ui_scale)}px;
+                font-size: {self.scl_f(14)}px;
+                border: {self.scl_f(2)}px solid #4a5568;
+                border-radius: {self.scl_f(8)}px;
+                margin-top: {self.scl_f(5)}px;
+                padding-top: {self.scl_f(15)}px;
                 color: #ffffff;
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #2d3748, stop:1 #1a202c);
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: {int(15 * self.settings.ui_scale)}px;
-                padding: 0 {int(10 * self.settings.ui_scale)}px 0 {int(10 * self.settings.ui_scale)}px;
+                left: {self.scl_f(15)}px;
+                padding: 0 {self.scl_f(10)}px;
                 color: #63b3ed;
                 font-weight: bold;
             }}
@@ -1232,47 +1250,47 @@ class VMixController(QMainWindow):
         self.btn_reset_scale.setStyleSheet(self.get_settings_button_style("#718096", "#4a5568"))
 
         # Update input field sizes
-        self.port_edit.setFixedWidth(int(100 * self.settings.ui_scale))
+        self.port_edit.setFixedWidth(self.scl_f(70))
 
         # Update button sizes
-        btn_width = int(90 * self.settings.ui_scale)
-        btn_height = int(35 * self.settings.ui_scale)
+        btn_width = int(self.scl_f(90))
+        btn_height = int(self.scl_f(35))
         self.btn_toggle_settings.setFixedWidth(btn_width)
         self.btn_toggle_settings.setFixedHeight(btn_height)
         self.btn_refresh.setFixedWidth(btn_width)
         self.btn_refresh.setFixedHeight(btn_height)
 
         # Update large button sizes
-        large_btn_width = int(120 * self.settings.ui_scale)
+        large_btn_width = int(self.scl_f(120))
         self.btn_quick_play.setMinimumWidth(large_btn_width)
         self.btn_ftb.setMinimumWidth(large_btn_width)
 
         # Update layout spacings and margins
-        self.control_layout.setSpacing(int(8 * self.settings.ui_scale))
-        self.row1.setSpacing(int(8 * self.settings.ui_scale))
-        self.right_buttons_layout.setSpacing(int(6 * self.settings.ui_scale))
-        self.right_buttons_layout.setContentsMargins(0, int(8 * self.settings.ui_scale), 0, 0)
-        self.second_row_layout.setSpacing(int(10 * self.settings.ui_scale))
-        self.overlay_layout.setSpacing(int(4 * self.settings.ui_scale))
-        self.overlay_buttons_layout.setSpacing(int(4 * self.settings.ui_scale))
-        self.preview_active_layout.setSpacing(int(4 * self.settings.ui_scale))
-        self.labels_row.setSpacing(int(10 * self.settings.ui_scale))
-        self.inputs_row.setSpacing(int(10 * self.settings.ui_scale))
-        self.settings_layout.setSpacing(int(10 * self.settings.ui_scale))
+        self.control_layout.setSpacing(self.scl_f(8))
+        self.row1.setSpacing(self.scl_f(8))
+        self.right_buttons_layout.setSpacing(self.scl_f(6))
+        self.right_buttons_layout.setContentsMargins(0, self.scl_f(8), 0, 0)
+        self.second_row_layout.setSpacing(self.scl_f(10))
+        self.overlay_layout.setSpacing(self.scl_f(4))
+        self.overlay_buttons_layout.setSpacing(self.scl_f(4))
+        self.preview_active_layout.setSpacing(self.scl_f(4))
+        self.labels_row.setSpacing(self.scl_f(10))
+        self.inputs_row.setSpacing(self.scl_f(10))
+        self.settings_layout.setSpacing(self.scl_f(10))
         self.settings_layout.setContentsMargins(
-            int(15 * self.settings.ui_scale),
-            int(15 * self.settings.ui_scale),
-            int(15 * self.settings.ui_scale),
-            int(15 * self.settings.ui_scale)
+            self.scl_f(15),
+            self.scl_f(15),
+            self.scl_f(15),
+            self.scl_f(15)
         )
 
         # Update tiles layout
-        self.tiles_layout.setSpacing(int(10 * self.settings.ui_scale))
+        self.tiles_layout.setSpacing(self.scl_f(10))
         self.tiles_layout.setContentsMargins(
-            int(35 * self.settings.ui_scale),
-            int(20 * self.settings.ui_scale),
-            int(35 * self.settings.ui_scale),
-            int(20 * self.settings.ui_scale)
+            self.scl_f(35),
+            self.scl_f(20),
+            self.scl_f(35),
+            self.scl_f(20)
         )
 
         # Update status bar
@@ -1282,9 +1300,9 @@ class VMixController(QMainWindow):
                     stop:0 #2d3748, stop:1 #1a202c);
                 color: #e2e8f0;
                 font-weight: bold;
-                font-size: {int(12 * self.settings.ui_scale)}px;
-                padding: {int(5 * self.settings.ui_scale)}px;
-                border-top: {int(1 * self.settings.ui_scale)}px solid #4a5568;
+                font-size: {self.scl_f(12)}px;
+                padding: {self.scl_f(5)}px;
+                border-top: {self.scl_f(1)}px solid #4a5568;
             }}
         """)
 
@@ -1292,9 +1310,9 @@ class VMixController(QMainWindow):
         self.version.setStyleSheet(f"""
                     QLabel {{
                         color: #718096;
-                        font-size: {int(14 * self.settings.ui_scale)}px;
+                        font-size: {self.scl_f(14)}px;
                         font-style: italic;
-                        padding-right: {int(10 * self.settings.ui_scale)}px;
+                        padding-right: {self.scl_f(10)}px;
                     }}
                 """)
 
@@ -1371,12 +1389,12 @@ class VMixController(QMainWindow):
         # Update button text and size
         if self.settings.show_settings:
             self.btn_toggle_settings.setText("Hide Settings")
-            self.btn_toggle_settings.setMinimumWidth(int(135 * self.settings.ui_scale))
-            self.btn_toggle_settings.setMaximumWidth(int(135 * self.settings.ui_scale))
+            self.btn_toggle_settings.setMinimumWidth(self.scl_f(135))
+            self.btn_toggle_settings.setMaximumWidth(self.scl_f(135))
         else:
             self.btn_toggle_settings.setText("Settings")
-            self.btn_toggle_settings.setMinimumWidth(int(95 * self.settings.ui_scale))
-            self.btn_toggle_settings.setMaximumWidth(int(95 * self.settings.ui_scale))
+            self.btn_toggle_settings.setMinimumWidth(self.scl_f(95))
+            self.btn_toggle_settings.setMaximumWidth(self.scl_f(95))
 
     def save_settings(self):
         """Save settings from UI to settings object"""
@@ -1503,17 +1521,17 @@ class VMixController(QMainWindow):
         original_style = self.btn_refresh.styleSheet()
         green_style = f"""
             QPushButton {{
-                padding: {int(5 * self.settings.ui_scale)}px {int(10 * self.settings.ui_scale)}px;
+                padding: {self.scl_f(5)}px {self.scl_f(10)}px;
                 font-weight: bold;
-                font-size: {int(11 * self.settings.ui_scale)}px;
-                border: {int(1 * self.settings.ui_scale)}px solid #4CAF50;
-                border-radius: {int(4 * self.settings.ui_scale)}px;
+                font-size: {self.scl_f(11)}px;
+                border: {self.scl_f(1)}px solid #4CAF50;
+                border-radius: {self.scl_f(4)}px;
                 background: #4CAF50;
                 color: white;
             }}
             QPushButton:hover {{
                 background: #45a049;
-                border: {int(1 * self.settings.ui_scale)}px solid #45a049;
+                border: {self.scl_f(1)}px solid #45a049;
             }}
         """
         self.btn_refresh.setStyleSheet(green_style)
@@ -1566,7 +1584,7 @@ class VMixController(QMainWindow):
         if self.preview_input and self.preview_input in self.input_tiles:
             tile = self.input_tiles[self.preview_input]
             title = tile.input_data.get('short_title') or tile.input_data.get('title', '')
-            title_length = int(25 * self.settings.ui_scale)
+            title_length = self.scl_f(25)
             if len(title) > title_length:
                 title = title[:int(title_length * 0.85)] + "..."
             self.preview_input_label.setText(f"V{self.preview_input}: {title}")
@@ -1577,7 +1595,7 @@ class VMixController(QMainWindow):
         if self.active_input and self.active_input in self.input_tiles:
             tile = self.input_tiles[self.active_input]
             title = tile.input_data.get('short_title') or tile.input_data.get('title', '')
-            title_length = int(25 * self.settings.ui_scale)
+            title_length = self.scl_f(25)
             if len(title) > title_length:
                 title = title[:int(title_length * 0.85)] + "..."
             self.active_input_label.setText(f"V{self.active_input}: {title}")
