@@ -380,6 +380,7 @@ class InputTile(QWidget):
         """Change tile scale and rebuild UI"""
         self.scale_factor = scale_factor
         self.setup_ui()  # Recreate UI with new scale
+        self.updateGeometry()
 
 
 # ==================== MAIN APPLICATION WINDOW ====================
@@ -1144,25 +1145,20 @@ class VMixController(QMainWindow):
         Apply scaling factor to entire UI.
 
         Args:
-            scale_factor: Scaling factor (0.7 to 2.2)
+            scale_factor: Scaling factor (0.7 to 1.8)
         """
         # Save new scale to settings
         self.settings.ui_scale = scale_factor
-
-        # Update window size (only if not in fullscreen)
-        if not self.settings.fullscreen:
-            base_window_size = self.base_sizes['window']
-            new_window_size = base_window_size * scale_factor
-            self.resize(new_window_size)
-            logging.info(f"Set new windows size {new_window_size}")
-        else:
-            self.setup_ui()
 
         # Update all styles with new scale
         self.update_all_styles()
 
         # Update tile scales
         self.update_tiles_scale()
+        
+        self.centralWidget().updateGeometry() # update size hint
+        self.centralWidget().layout().invalidate() # clear layout cache
+        self.centralWidget().layout().activate() # recalculate geometry
 
         # Save settings
         self.settings.save()
@@ -1250,15 +1246,15 @@ class VMixController(QMainWindow):
         self.btn_reset_scale.setStyleSheet(self.get_settings_button_style("#718096", "#4a5568"))
 
         # Update input field sizes
-        self.port_edit.setFixedWidth(self.scl_f(70))
+        self.port_edit.setMinimumWidth(self.scl_f(70))
 
         # Update button sizes
         btn_width = int(self.scl_f(90))
         btn_height = int(self.scl_f(35))
-        self.btn_toggle_settings.setFixedWidth(btn_width)
-        self.btn_toggle_settings.setFixedHeight(btn_height)
-        self.btn_refresh.setFixedWidth(btn_width)
-        self.btn_refresh.setFixedHeight(btn_height)
+        self.btn_toggle_settings.setMinimumWidth(btn_width)
+        self.btn_toggle_settings.setMinimumHeight(btn_height)
+        self.btn_refresh.setMinimumWidth(btn_width)
+        self.btn_refresh.setMinimumHeight(btn_height)
 
         # Update large button sizes
         large_btn_width = int(self.scl_f(120))
