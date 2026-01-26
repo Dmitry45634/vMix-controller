@@ -1,9 +1,9 @@
 #NOTE!: IF YOU CUSTOMIZE UI, ANY SIZE PROPERTIES MUST USE def scl_f() CONVERT TO SCALING METHOD 
 import sys
-import os
 import json
 import requests
 import logging
+import traceback
 import xml.etree.ElementTree as ET
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
@@ -14,7 +14,7 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",
     handlers=[
         logging.FileHandler("app.log", encoding="utf-8"),
-        logging.StreamHandler(sys.stdout)  # оставляем вывод в консоль
+        logging.StreamHandler(sys.stdout)
     ]
 )
 
@@ -429,9 +429,6 @@ class VMixController(QMainWindow):
         self.setup_ui()
         self.setWindowTitle("vMix Controller")
 
-        # Apply saved UI scale
-        self.apply_scale(self.settings.ui_scale)
-
         # Apply fullscreen mode if saved
         if self.settings.fullscreen:
             self.toggle_fullscreen()
@@ -479,13 +476,22 @@ class VMixController(QMainWindow):
         self.scale_label.setText(f"{value}%")
 
     def on_scale_changed(self, value):
+        caller = sys._getframe(1)
+        logging.info(
+            "Slider triggered. Called by %s in %s:%d",
+            caller.f_code.co_name,
+            caller.f_code.co_filename,
+            caller.f_lineno
+        )
         scale_factor = round(value / int(self.settings.scale_slider_step)) * int(self.settings.scale_slider_step) # rounding slider value
         scale_factor = scale_factor / 100 # convert to scale factor
         self.status_bar.showMessage(str(scale_factor), 3000)
         logging.info("Scaling changed to " + str(scale_factor))
-        self.scale_label.setText(f"{value}%")
+        self.scale_slider.blockSignals(True)
+        self.scale_label.setText(f"{int(scale_factor * 100)}%")
         self.scale_slider.setValue(int(scale_factor * 100)) # set slider to round value
         self.apply_scale(scale_factor) # apply scale
+        self.scale_slider.blockSignals(False)
 
     def get_large_button_style(self, bg_color="#2196F3"):
         """Generate CSS style for large buttons (QUICK PLAY, FTB) with scaling"""
@@ -615,7 +621,6 @@ class VMixController(QMainWindow):
             font = widget.font()
             font.setPointSize(self.scl_f(font_size))
             font.setBold(True)
-            logging.info(f"Got heading style, font: {font}")
             return font
     
     def get_preview_label_style(self):
@@ -1140,33 +1145,48 @@ class VMixController(QMainWindow):
     # ========== SCALING APPLICATION METHODS ==========
 
     def apply_scale(self, scale_factor):
-        logging.info("Applying scale...")
         """
         Apply scaling factor to entire UI.
 
         Args:
             scale_factor: Scaling factor (0.7 to 1.8)
         """
-        # Save new scale to settings
-        self.settings.ui_scale = scale_factor
-
-        # Update all styles with new scale
-        self.update_all_styles()
-
-        # Update tile scales
-        self.update_tiles_scale()
+        caller = sys._getframe(1)
+        logging.info(
+            "! --- Applying scale... | Called by %s in %s:%d",
+            caller.f_code.co_name,
+            caller.f_code.co_filename,
+            caller.f_lineno
+        )
         
-        self.centralWidget().updateGeometry() # update size hint
-        self.centralWidget().layout().invalidate() # clear layout cache
-        self.centralWidget().layout().activate() # recalculate geometry
-        self.setMinimumSize(self.sizeHint()) # set new minimum size
+        if scale_factor != self.settings.ui_scale:
+            # Save new scale to settings
+            self.settings.ui_scale = scale_factor
 
-        # Save settings
-        self.settings.save()
+            # Update all styles with new scale
+            self.update_all_styles()
+
+            # Update tile scales
+            self.update_tiles_scale()
+            
+            self.centralWidget().updateGeometry() # update size hint
+            self.centralWidget().layout().invalidate() # clear layout cache
+            self.centralWidget().layout().activate() # recalculate geometry
+
+            # Save settings
+            self.settings.save()
+        else:
+            logging.warning("Scaling not applied, same value")
 
     def update_all_styles(self):
-        logging.info("Updating styles...")
         """Update all widget styles with current scale factor"""
+        caller = sys._getframe(1)
+        logging.info(
+            "Updating styles. Called by %s in %s:%d",
+            caller.f_code.co_name,
+            caller.f_code.co_filename,
+            caller.f_lineno
+        )
         # Update large buttons
         self.btn_quick_play.setStyleSheet(self.get_large_button_style())
 
@@ -1349,10 +1369,10 @@ class VMixController(QMainWindow):
             # Enter fullscreen mode
             self.showFullScreen()
             screen = self.window().screen()
-            self.setMinimumSize(screen.availableSize())
-            self.setMaximumSize(screen.availableSize())
+            self.setMinimumSize(screen.size())
+            self.setMaximumSize(screen.size())
             self.status_bar.showMessage("🖥️ Fullscreen mode enabled", 2000)
-            logging.info("Fullscreen on")
+            logging.info(f"Fullscreen on, screen is {screen.manufacturer()} {screen.model()}, {screen.size()} | Window min-size is: {self.minimumSize()}, max-size is: {self.maximumSize()}")
 
             # Save normal window geometry for restoration
             if not hasattr(self, 'normal_geometry'):
