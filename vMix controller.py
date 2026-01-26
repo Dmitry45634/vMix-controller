@@ -1106,16 +1106,16 @@ class VMixController(QMainWindow):
         # ========== STATUS BAR ==========
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.setStyleSheet("""
-            QStatusBar {
+        self.status_bar.setStyleSheet(f"""
+            QStatusBar {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #2d3748, stop:1 #1a202c);
                 color: #e2e8f0;
                 font-weight: bold;
-                font-size: 12px;
-                padding: 5px;
-                border-top: 1px solid #4a5568;
-            }
+                font-size: {self.scl_f(12)}px;
+                padding: {self.scl_f(5)}px;
+                border-top: {self.scl_f(1)}px solid #4a5568;
+            }}
         """)
 
         self.status_bar.showMessage("Ready to connect")
@@ -1124,13 +1124,13 @@ class VMixController(QMainWindow):
         # Version label in status bar
         version_str = "Version: " + str(self.settings.version)
         self.version = QLabel(version_str)
-        self.version.setStyleSheet("""
-                    QLabel {
+        self.version.setStyleSheet(f"""
+                    QLabel {{
                         color: #718096;
-                        font-size: 14px;
+                        font-size: {self.scl_f(14)}px;
                         font-style: italic;
-                        padding-right: 10px;
-                    }
+                        padding-right: {self.scl_f(10)}px;
+                    }}
                 """)
         self.status_bar.addPermanentWidget(self.version)
 
@@ -1159,6 +1159,7 @@ class VMixController(QMainWindow):
         self.centralWidget().updateGeometry() # update size hint
         self.centralWidget().layout().invalidate() # clear layout cache
         self.centralWidget().layout().activate() # recalculate geometry
+        self.setMinimumSize(self.sizeHint()) # set new minimum size
 
         # Save settings
         self.settings.save()
@@ -1347,6 +1348,9 @@ class VMixController(QMainWindow):
         if self.settings.fullscreen:
             # Enter fullscreen mode
             self.showFullScreen()
+            screen = self.window().screen()
+            self.setMinimumSize(screen.availableSize())
+            self.setMaximumSize(screen.availableSize())
             self.status_bar.showMessage("🖥️ Fullscreen mode enabled", 2000)
             logging.info("Fullscreen on")
 
@@ -1356,6 +1360,7 @@ class VMixController(QMainWindow):
         else:
             # Exit fullscreen mode
             self.showNormal()
+            self.setMinimumSize(self.sizeHint())
             self.status_bar.showMessage("🖥️ Fullscreen mode disabled", 2000)
             logging.info("Fullscreen off")
 
@@ -1889,7 +1894,7 @@ def main():
             background-color: #ffffff;
             border: 1px solid #888888;
         }
-        QCheckсBox::indicator:checked:disabled {
+        QCheckBox::indicator:checked:disabled {
             background-color: #aaaaaa;
             border: 1px solid #888888;
         }
@@ -1897,6 +1902,9 @@ def main():
             border: 1px solid #888888;
         }
     """)
+    
+    
+    
 
     # Create and show main window
     window = VMixController()
