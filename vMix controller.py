@@ -14,7 +14,7 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",
     handlers=[
         logging.FileHandler("app.log", encoding="utf-8"),
-        logging.StreamHandler(sys.stdout)
+        logging.StreamHandler(sys.stdout)  # оставляем вывод в консоль
     ]
 )
 
@@ -31,7 +31,7 @@ class Settings:
         self.show_settings = True
         self.ui_scale = 1.0
         self.fullscreen = False
-        self.version = 1.2
+        self.version = 1.3 # program version is defined here
         self.scale_slider_step = 5
 
     def load(self): #try to parse from json
@@ -47,11 +47,15 @@ class Settings:
                 self.show_settings = data.get('show_settings', True)
                 self.ui_scale = data.get('ui_scale', self.ui_scale)
                 self.fullscreen = data.get('fullscreen', False)
-                self.version = data.get('version', self.version)
+                self.version_cfg = data.get('version', self.version)
                 self.scale_slider_step = data.get('scale_slider_step', self.scale_slider_step)
         except FileNotFoundError: #if theres no json create one
             logging.info("No settings file found! Creating one...")
             self.save()
+        
+        if self.version > self.version_cfg:
+            self.save()
+            logging.warning("Version updated. Saved new cfg")
 
     def save(self): #save json with defined settings
         logging.info("Saving settings file...")
@@ -413,19 +417,6 @@ class VMixController(QMainWindow):
         # Overlay state tracking
         self.active_overlays = {1: False, 2: False, 3: False, 4: False}
 
-        # Base sizes for scaling - store original 100% scale sizes
-        self.base_sizes = {
-            'window': QSize(1100, 800),
-            'tile': QSize(130, 100),
-            'quick_play_btn': QSize(120, 0),  # 0 means auto height
-            'ftb_btn': QSize(120, 0),
-            'settings_btn': QSize(90, 35),
-            'refresh_btn': QSize(90, 35),
-            'overlay_btn': QSize(70, 0),
-            'preview_label': QSize(180, 0),
-            'active_label': QSize(180, 0)
-        }
-
         self.setup_ui()
         self.setWindowTitle("vMix Controller")
 
@@ -470,10 +461,6 @@ class VMixController(QMainWindow):
         value = value * self.settings.ui_scale
         value = int(value)
         return value
-
-    def update_scale_display(self, value):
-        """Update scale display label without applying changes"""
-        self.scale_label.setText(f"{value}%")
 
     def on_scale_changed(self, value):
         caller = sys._getframe(1)
@@ -567,8 +554,11 @@ class VMixController(QMainWindow):
                 color: white;
             }}
             QPushButton:hover {{
-                background: {self.darken_color(bg_color)};
+                background: {self.lighten_color(bg_color)};
                 border: {self.scl_f(1)}px solid #666;
+            }}
+            QPushButton:pressed {{
+                background: {self.darken_color(bg_color)};
             }}
             QPushButton:disabled {{
                 background: #555;
@@ -704,10 +694,15 @@ class VMixController(QMainWindow):
                 background: #2d3748;
                 border: {self.scl_f(2)}px solid #4a5568;
                 border-radius: {self.scl_f(4)}px;
+                
             }}
             QCheckBox::indicator:checked {{
                 background: #4299e1;
                 border: {self.scl_f(2)}px solid #63b3ed;
+            }}
+            QCheckBox::indicator:checked:disabled {{
+            background-color: #aaaaaa;
+            border: {self.scl_f(1)}px solid #888888;
             }}
             QCheckBox::indicator:hover {{
                 border: {self.scl_f(2)}px solid #718096;
@@ -738,19 +733,27 @@ class VMixController(QMainWindow):
             }}
         """
 
-    def darken_color(self, color):
-        """Darken color by 10% (simplified implementation)"""
-        # Simplified implementation - in production you'd want proper color manipulation
-        if color.startswith('#'):
-            return color  # Implement proper color darkening if needed
-        return color
+    def darken_color(self, color, amount=0.1):
+        color = color.lstrip('#')
+        if len(color) == 3:
+            color = ''.join(c * 2 for c in color)
 
-    def lighten_color(self, color):
-        """Lighten color by 10% (simplified implementation)"""
-        # Simplified implementation - in production you'd want proper color manipulation
-        if color.startswith('#'):
-            return color  # Implement proper color lightening if needed
-        return color
+        r = max(0, int(int(color[0:2], 16) * (1 - amount)))
+        g = max(0, int(int(color[2:4], 16) * (1 - amount)))
+        b = max(0, int(int(color[4:6], 16) * (1 - amount)))
+
+        return f'#{r:02x}{g:02x}{b:02x}'
+
+    def lighten_color(self, color, amount=0.1):
+        color = color.lstrip('#')
+        if len(color) == 3:
+            color = ''.join(c * 2 for c in color)
+
+        r = max(0, int(int(color[0:2], 16) * (1 + amount)))
+        g = max(0, int(int(color[2:4], 16) * (1 + amount)))
+        b = max(0, int(int(color[4:6], 16) * (1 + amount)))
+
+        return f'#{r:02x}{g:02x}{b:02x}'
 
     def setup_ui(self):
         logging.info("UI setting up...")
@@ -766,12 +769,12 @@ class VMixController(QMainWindow):
         inputs_header_layout = QHBoxLayout()
 
         inputs_label = QLabel("Inputs")
-        inputs_label.setStyleSheet("""
-            QLabel {
+        inputs_label.setStyleSheet(f"""
+            QLabel {{
                 font-weight: bold;
-                font-size: 13px;
+                font-size: {self.scl_f(13)}px;
                 color: #bbb;
-            }
+            }}
         """)
         inputs_header_layout.addWidget(inputs_label)
 
@@ -789,67 +792,67 @@ class VMixController(QMainWindow):
 
         # Custom flow layout for tiles (wraps to next line)
         self.tiles_layout = QFlowLayout(self.tiles_container)
-        self.tiles_layout.setSpacing(10)
-        self.tiles_layout.setContentsMargins(35, 20, 35, 20)
+        self.tiles_layout.setSpacing(self.scl_f(10))
+        self.tiles_layout.setContentsMargins(self.scl_f(35), self.scl_f(20), self.scl_f(35), self.scl_f(20))
 
         # Scroll area for tiles (in case many inputs)
         scroll_area = QScrollArea()
         scroll_area.setWidget(self.tiles_container)
         scroll_area.setWidgetResizable(True)
-        scroll_area.setMinimumHeight(400)
-        scroll_area.setStyleSheet("""
-            QScrollArea {
-                border: 2px solid #555;
-                border-radius: 6px;
+        scroll_area.setMinimumHeight(self.scl_f(400))
+        scroll_area.setStyleSheet(f"""
+            QScrollArea {{
+                border: {self.scl_f(2)}px solid #555;
+                border-radius: {self.scl_f(6)}px;
                 background: #1E2328;
-            }
-            QScrollBar:vertical {
+            }}
+            QScrollBar:vertical {{
                 border: none;
                 background: #222;
-                width: 40px;
-                border-radius: 10px;
-                margin: 2px;
-            }
-            QScrollBar::handle:vertical {
+                width: {self.scl_f(40)}px;
+                border-radius: {self.scl_f(10)}px;
+                margin: {self.scl_f(2)}px;
+            }}
+            QScrollBar::handle:vertical {{
                 background: #666;
-                border-radius: 10px;
-                min-height: 40px;
-            }
-            QScrollBar::handle:vertical:hover {
+                border-radius: {self.scl_f(10)}px;
+                min-height: {self.scl_f(40)}px;
+            }}
+            QScrollBar::handle:vertical:hover {{
                 background: #888;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
                 border: none;
                 background: none;
                 height: 0px;
-            }
-            QScrollBar:horizontal {
+            }}
+            QScrollBar:horizontal {{
                 height: 0px;
-            }
+            }}
         """)
 
         main_layout.addWidget(scroll_area)
 
         # ========== CONTROL PANEL ==========
         self.control_group = QGroupBox()
-        self.control_group.setStyleSheet("""
-            QGroupBox {
+        self.control_group.setStyleSheet(f"""
+            QGroupBox {{
                 font-weight: bold;
-                font-size: 13px;
-                border: 2px solid #555;
-                border-radius: 6px;
-                margin-top: 2px;
+                font-size: {self.scl_f(13)}px;
+                border: {self.scl_f(2)}px solid #555;
+                border-radius: {self.scl_f(6)}px;
+                margin-top: {self.scl_f(2)}px;
                 padding-top: 0px;
                 color: #bbb;
-            }
+            }}
         """)
 
         self.control_layout = QVBoxLayout()
-        self.control_layout.setSpacing(8)
+        self.control_layout.setSpacing(self.scl_f(8))
 
         # ========== ROW 1: QUICK PLAY, FTB + RIGHT BUTTONS ==========
         self.row1 = QHBoxLayout()
-        self.row1.setSpacing(8)
+        self.row1.setSpacing(self.scl_f(8))
         self.row1.setContentsMargins(0, 0, 0, 0)
 
         # Quick Play button
@@ -870,8 +873,8 @@ class VMixController(QMainWindow):
 
         # Right side buttons container
         self.right_buttons_layout = QHBoxLayout()
-        self.right_buttons_layout.setSpacing(6)
-        self.right_buttons_layout.setContentsMargins(0, 8, 0, 0)
+        self.right_buttons_layout.setSpacing(self.scl_f(6))
+        self.right_buttons_layout.setContentsMargins(0, self.scl_f(8), 0, 0)
 
         # Settings toggle button
         self.btn_toggle_settings = QPushButton("Settings")
@@ -891,13 +894,13 @@ class VMixController(QMainWindow):
         # ========== ROW 2: OVERLAYS AND PREVIEW/PROGRAM ==========
         self.second_row_container = QWidget()
         self.second_row_layout = QHBoxLayout(self.second_row_container)
-        self.second_row_layout.setSpacing(10)
+        self.second_row_layout.setSpacing(self.scl_f(10))
         self.second_row_layout.setContentsMargins(0, 0, 0, 0)
 
         # ========== LEFT SIDE: OVERLAY BUTTONS ==========
         self.overlay_container = QWidget()
         self.overlay_layout = QVBoxLayout(self.overlay_container)
-        self.overlay_layout.setSpacing(4)
+        self.overlay_layout.setSpacing(self.scl_f(4))
         self.overlay_layout.setContentsMargins(0, 0, 0, 0)
 
         # Overlay section label
@@ -913,7 +916,7 @@ class VMixController(QMainWindow):
         # Overlay buttons container
         self.overlay_buttons_widget = QWidget()
         self.overlay_buttons_layout = QHBoxLayout(self.overlay_buttons_widget)
-        self.overlay_buttons_layout.setSpacing(4)
+        self.overlay_buttons_layout.setSpacing(self.scl_f(4))
         self.overlay_buttons_layout.setContentsMargins(0, 0, 0, 0)
 
         # Overlay buttons 1-4
@@ -956,12 +959,12 @@ class VMixController(QMainWindow):
         # ========== RIGHT SIDE: PREVIEW AND PROGRAM ==========
         self.preview_active_container = QWidget()
         self.preview_active_layout = QVBoxLayout(self.preview_active_container)
-        self.preview_active_layout.setSpacing(4)
+        self.preview_active_layout.setSpacing(self.scl_f(4))
         self.preview_active_layout.setContentsMargins(0, 0, 0, 0)
 
         # Preview and Program labels row
         self.labels_row = QHBoxLayout()
-        self.labels_row.setSpacing(10)
+        self.labels_row.setSpacing(self.scl_f(10))
         self.labels_row.setContentsMargins(0, 0, 0, 0)
 
         self.preview_label = QLabel("PREVIEW")
@@ -990,7 +993,7 @@ class VMixController(QMainWindow):
 
         # Preview and Program input display row
         self.inputs_row = QHBoxLayout()
-        self.inputs_row.setSpacing(10)
+        self.inputs_row.setSpacing(self.scl_f(10))
         self.inputs_row.setContentsMargins(0, 0, 0, 0)
 
         self.preview_input_label = QLabel("Not selected")
@@ -1187,6 +1190,17 @@ class VMixController(QMainWindow):
             caller.f_code.co_filename,
             caller.f_lineno
         )
+        
+        #global styles
+        self.setStyleSheet("""
+            QMainWindow {
+                background: #1a1a1a;
+            }
+            QLabel {
+                color: #ddd;
+            }
+        """)
+
         # Update large buttons
         self.btn_quick_play.setStyleSheet(self.get_large_button_style())
 
@@ -1386,7 +1400,7 @@ class VMixController(QMainWindow):
 
             # Restore normal size with scaling
             if hasattr(self, 'normal_geometry'):
-                base_size = self.base_sizes['window']
+                base_size = QSize(1100, 800)
                 scaled_size = base_size * self.settings.ui_scale
                 self.resize(scaled_size)
 
@@ -1880,51 +1894,6 @@ def main():
     logging.info("-------------------Initializing app...-------------------")
     app = QApplication(sys.argv)
     app.setStyle("Fusion")  # Use Fusion style for consistent look
-
-    # Global application stylesheet
-    app.setStyleSheet("""
-        QMainWindow {
-            background: #1a1a1a;
-        }
-        QLabel {
-            color: #ddd;
-        }
-        QLineEdit, QComboBox {
-            background: #2a2a2a;
-            color: #ddd;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 6px;
-        }
-        QLineEdit:focus, QComboBox:focus {
-            border: 1px solid #777;
-        }
-        QCheckBox {
-            color: #ddd;
-            spacing: 8px;
-        }
-        QCheckBox::indicator {
-            width: 18px;
-            height: 18px;
-            background: #444444;
-            border: 1px solid #666666;
-            border-radius: 3px;
-        }
-        QCheckBox::indicator:checked {
-            background-color: #ffffff;
-            border: 1px solid #888888;
-        }
-        QCheckBox::indicator:checked:disabled {
-            background-color: #aaaaaa;
-            border: 1px solid #888888;
-        }
-        QCheckBox::indicator:hover {
-            border: 1px solid #888888;
-        }
-    """)
-    
-    
-    
 
     # Create and show main window
     window = VMixController()
