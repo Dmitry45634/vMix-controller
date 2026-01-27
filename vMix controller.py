@@ -570,11 +570,12 @@ class VMixController(QMainWindow):
         """Generate CSS style for overlay buttons"""
         return f"""
             QPushButton {{
-                padding: {self.scl_f(6)}px {self.scl_f(10)}px;
+                padding: {self.scl_f(6)}px {self.scl_f(12)}px;
                 font-weight: bold;
-                border: {self.scl_f(2)}px solid #555;
-                border-radius: {self.scl_f(4)}px;
+                border: {self.scl_f(3)}px solid #555;
+                border-radius: {self.scl_f(6)}px;
                 min-width: {self.scl_f(70)}px;
+                min-height: {self.scl_f(26)}px;
                 color: white;
                 background: #666666;
             }}
@@ -592,11 +593,12 @@ class VMixController(QMainWindow):
         """Generate CSS style for active overlay button (orange highlight)"""
         return f"""
             QPushButton {{
-                padding: {self.scl_f(6)}px {self.scl_f(10)}px;
+                padding: {self.scl_f(6)}px {self.scl_f(12)}px;
                 font-weight: bold;
                 border: {self.scl_f(2)}px solid #F57C00;
                 border-radius: {self.scl_f(4)}px;
                 min-width: {self.scl_f(70)}px;
+                min-height: {self.scl_f(26)}px;
                 color: white;
                 background: #FF9800;
             }}
@@ -607,7 +609,7 @@ class VMixController(QMainWindow):
         """
 
     def get_heading_font_size(self, widget, font_size):
-        if isinstance(widget, QLabel):
+        if isinstance(widget, QLabel) or isinstance(widget, QAbstractButton):
             font = widget.font()
             font.setPointSize(self.scl_f(font_size))
             font.setBold(True)
@@ -1217,6 +1219,12 @@ class VMixController(QMainWindow):
         # Update overlay buttons
         overlay_style = self.get_overlay_button_style()
         active_overlay_style = self.get_active_overlay_button_style()
+        
+        self.btn_overlay1.setFont(self.get_heading_font_size(self.btn_overlay1, 10))
+        self.btn_overlay2.setFont(self.get_heading_font_size(self.btn_overlay2, 10))
+        self.btn_overlay3.setFont(self.get_heading_font_size(self.btn_overlay3, 10))
+        self.btn_overlay4.setFont(self.get_heading_font_size(self.btn_overlay4, 10))
+        self.btn_remove_overlay.setFont(self.get_heading_font_size(self.btn_remove_overlay, 10))
 
         for i in range(1, 5):
             button = getattr(self, f'btn_overlay{i}')
