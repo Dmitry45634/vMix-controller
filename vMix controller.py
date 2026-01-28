@@ -4,6 +4,7 @@ import json
 import requests
 import logging
 import traceback
+import webbrowser
 import xml.etree.ElementTree as ET
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
@@ -14,10 +15,44 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",
     handlers=[
         logging.FileHandler("app.log", encoding="utf-8"),
-        logging.StreamHandler(sys.stdout)  # оставляем вывод в консоль
+        logging.StreamHandler(sys.stdout)
     ]
 )
 
+def exception_handler(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    logging.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback), stack_info=True)
+    Dialog = ErrorDialog()
+    if Dialog.exec() is 0:
+        sys.exit()
+
+sys.excepthook = exception_handler
+
+class ErrorDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Critical Error!")
+        
+        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Close | QDialogButtonBox.StandardButton.Help
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        self.buttonBox.helpRequested.connect(self.help)
+
+        layout = QVBoxLayout()
+        message = QLabel("Uncaught critical exception ocurred!\n\nGet help by submiting an issue to github, by clicking Help button.\n\nCheck logs (app.log file) for more information.")
+        layout.addWidget(message)
+        layout.addWidget(self.buttonBox)
+        self.setLayout(layout)
+        
+    def help(self):
+        print("help")
+        webbrowser.open('https://github.com/Dmitry45634/vMix-controller/issues/new', new = 2)
 
 # ==================== SETTINGS CLASS ====================
 class Settings:
@@ -31,6 +66,7 @@ class Settings:
         self.show_settings = True
         self.ui_scale = 1.0
         self.fullscreen = False
+        self.version_cfg = 0
         self.version = 1.3 # program version is defined here
         self.scale_slider_step = 5
 
@@ -81,12 +117,15 @@ class vMixAPI:
     API client for communicating with vMix instance.
     Handles HTTP requests and XML data parsing from vMix API.
     """
-
     def __init__(self, ip, port):
         """Initialize API client with server IP and port"""
-        logging.info("API init...")
+        logging.info(f"API init... | http://{ip}:{port}/api")
         self.base_url = f"http://{ip}:{port}/api"
         self.timeout = 5  # Request timeout in second
+        self.settings = Settings()
+        self.settings.load()
+        self.user = self.settings.login
+        self.passw = self.settings.password
 
     def send_command(self, command, **params):
         """
@@ -107,7 +146,7 @@ class vMixAPI:
                 url += f"&{params_str}"
 
             # Send HTTP GET request to vMix
-            response = requests.get(url, timeout=self.timeout)
+            response = requests.get(url, timeout=self.timeout, auth=(self.user, self.passw))
             return response.status_code == 200
         except Exception as e:
             logging.error(f"Command send error: {e}")
@@ -122,7 +161,7 @@ class vMixAPI:
         """
         try:
             url = f"{self.base_url}/"
-            response = requests.get(url, timeout=self.timeout)
+            response = requests.get(url, timeout=self.timeout, auth=(self.user, self.passw))
             if response.status_code == 200:
                 return response.text
             return None
@@ -216,6 +255,22 @@ class vMixAPI:
             logging.error(f"Preview input retrieval error: {e}")
             return None
 
+    def get_active_input_time_left(self, type):
+        inputs = self.get_inputs()
+        index = int(self.get_active_input())
+        index = index - 1
+        active_input = inputs[index]
+        duration = int(active_input.get('duration', 0))
+        position = int(active_input.get('position', 0))
+        left = duration-position
+        logging.info(f"Got new duration and position (ms): {position}:{duration}, left: {left}")
+        
+        if type == 0:
+            return left
+        elif type == 1:
+            return duration
+        elif type == 2:
+            return position
 
 # ==================== INPUT TILE WIDGET ====================
 class InputTile(QWidget):
@@ -406,6 +461,7 @@ class VMixController(QMainWindow):
         self.input_tiles = {}  # Dictionary of input number -> tile widget
         self.selected_input = None
         self.active_input = None
+        self.active_input_time_left = None
         self.preview_input = None
 
         # Timers for periodic updates and effects
@@ -747,6 +803,7 @@ class VMixController(QMainWindow):
         return f'#{r:02x}{g:02x}{b:02x}'
 
     def lighten_color(self, color, amount=0.1):
+        
         color = color.lstrip('#')
         if len(color) == 3:
             color = ''.join(c * 2 for c in color)
@@ -756,6 +813,36 @@ class VMixController(QMainWindow):
         b = max(0, int(int(color[4:6], 16) * (1 + amount)))
 
         return f'#{r:02x}{g:02x}{b:02x}'
+
+    def get_duration_bar_style(self, color):
+        if color is "normal":
+            return f"""
+                QProgressBar {{
+                    font-size: {self.scl_f(13)}px;
+                    padding: {self.scl_f(5)}px {self.scl_f(5)}px;
+                    border-radius: {self.scl_f(5)}px;
+                    max-width: {self.scl_f(350)}px;
+                    background: #2d3748;
+                    text-align: center
+                }}
+                QProgressBar::chunk {{
+                    background: green
+                }}
+            """
+        elif color is "end":
+            return f"""
+                QProgressBar {{
+                    font-size: {self.scl_f(13)}px;
+                    padding: {self.scl_f(5)}px {self.scl_f(5)}px;
+                    border-radius: {self.scl_f(5)}px;
+                    max-width: {self.scl_f(350)}px;
+                    background: #2d3748;
+                    text-align: center
+                }}
+                QProgressBar::chunk {{
+                    background: red
+                }}
+            """
 
     def setup_ui(self):
         logging.info("UI setting up...")
@@ -870,7 +957,11 @@ class VMixController(QMainWindow):
         self.btn_ftb.setToolTip("Fade To Black")
         self.btn_ftb.setEnabled(False)  # Disabled until connected
         self.row1.addWidget(self.btn_ftb)
-
+        
+        self.duration_bar = QProgressBar()
+        self.duration_bar.setTextVisible(True)
+        self.row1.addWidget(self.duration_bar, alignment=Qt.AlignmentFlag.AlignBottom)
+        
         self.row1.addStretch()  # Push buttons to left
 
         # Right side buttons container
@@ -1031,7 +1122,9 @@ class VMixController(QMainWindow):
 
         self.port_edit = QLineEdit(self.settings.port)
         self.port_edit.setPlaceholderText("8088")
-        
+        port_validator = QRegularExpressionValidator(QRegularExpression(r'\d+'))
+        self.port_edit.setValidator(port_validator)
+
         #create a layout
         ip_port_layout = QHBoxLayout()
         ip_port_layout.addWidget(self.ip_edit, 0)
@@ -1238,7 +1331,9 @@ class VMixController(QMainWindow):
         # Update labels
         self.preview_input_label.setStyleSheet(self.get_preview_label_style())
         self.active_input_label.setStyleSheet(self.get_active_label_style())
-
+        
+        self.duration_bar.setStyleSheet(self.get_duration_bar_style("normal"))
+        
         self.overlay_label.setFont(self.get_heading_font_size(self.overlay_label, 13))
         self.preview_label.setFont(self.get_heading_font_size(self.preview_label, 13))
         self.active_label.setFont(self.get_heading_font_size(self.active_label, 13))
@@ -1454,11 +1549,16 @@ class VMixController(QMainWindow):
     def connect_to_vmix(self):
         """Connect to vMix instance with provided credentials"""
         ip = self.ip_edit.text()
-        port = self.port_edit.text()
+        port = int(self.port_edit.text())
 
         if not ip:
-            self.status_bar.showMessage("❌ Enter vMix IP address!", 3000)
+            self.status_bar.showMessage("❌ Enter valid vMix IP address!", 3000)
             logging.warning("IP is not valid")
+            return
+        
+        if port > 65535 or port < 0:
+            self.status_bar.showMessage("❌ Enter valid vMix Port!", 3000)
+            logging.warning("Port is not valid")
             return
 
         self.status_bar.showMessage(f"Connecting to {ip}:{port}...")
@@ -1495,8 +1595,7 @@ class VMixController(QMainWindow):
                 self.vmix_api = None  # Reset API on failure
 
         except Exception as e:
-            # Log error to console only
-            logging.error(f"Connection error: {e}")
+            logging.exception(f"Connection error: {e}")
             self.status_bar.showMessage("❌ Connection error", 3000)
             self.btn_connect.setText("Connect")
             self.btn_connect.setStyleSheet(self.get_settings_button_style("#4299e1", "#3182ce"))
@@ -1645,6 +1744,37 @@ class VMixController(QMainWindow):
         else:
             self.active_input_label.setText("No data")
 
+    def update_duration_bar(self):
+        position = self.vmix_api.get_active_input_time_left(2)
+        duration = self.vmix_api.get_active_input_time_left(1)
+        left = self.vmix_api.get_active_input_time_left(0)
+        self.duration_bar.setMaximum(duration)
+        self.duration_bar.setValue(position)
+        
+        duration_s = duration // 1000
+        duration_m = duration_s // 60
+        duration_s = duration_s % 60
+        
+        position_s = position // 1000
+        position_m = position_s // 60
+        position_s = position_s % 60
+        
+        left_s = left // 1000
+        left_m = left_s // 60
+        left_s = left_s % 60
+        
+        if left_s < 10:
+            if duration > 0:
+                self.duration_bar.show()
+                self.duration_bar.setStyleSheet(self.get_duration_bar_style("end"))
+            else:
+                self.duration_bar.hide()
+        else:
+            self.duration_bar.show()
+            self.duration_bar.setStyleSheet(self.get_duration_bar_style("normal"))
+            
+        self.duration_bar.setFormat(f"{position_m:02d}:{position_s:02d} - {duration_m:02d}:{duration_s:02d} | {left_m:02d}:{left_s:02d}")
+
     def quick_play(self):
         """Perform smooth transition from preview to program"""
         if not self.vmix_api or not self.preview_input:
@@ -1748,18 +1878,22 @@ class VMixController(QMainWindow):
             logging.error(f"Overlay remove error: {e}")
             self.status_bar.showMessage(f"❌ Overlay remove error", 2000)
 
+
     def update_states(self):
         """Periodic update of vMix states (active/preview inputs)"""
         if self.vmix_api:
             try:
                 new_active = self.vmix_api.get_active_input()
                 new_preview = self.vmix_api.get_preview_input()
+                new_active_input_time_left = self.vmix_api.get_active_input_time_left(0)
 
-                if new_active != self.active_input or new_preview != self.preview_input:
+                if new_active != self.active_input or new_preview != self.preview_input or new_active_input_time_left != self.active_input_time_left:
                     self.active_input = new_active
                     self.preview_input = new_preview
+                    self.active_input_time_left = new_active_input_time_left
                     self.update_tile_styles()
                     self.update_input_info()
+                    self.update_duration_bar()
             except:
                 # Ignore update errors
                 pass
